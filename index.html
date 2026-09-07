@@ -3,32 +3,31 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#f5f7fa">
-    <meta name="description" content="Seleccione una puerta para continuar.">
-    <title>Seleccione una puerta</title>
+    <meta name="theme-color" content="#1a2a3a">
+    <meta name="description" content="Seleccione una puerta para contactar.">
+    <title>Selecciona una puerta</title>
     <link rel="stylesheet" href="style.css">
   </head>
   <body>
     <main class="page">
-      <h1>Seleccione una puerta</h1>
-      <p class="instructions">Toque una puerta en la imagen o use los botones.</p>
+      <header class="intro">
+        <h1>Selecciona una puerta</h1>
+        <p>Elige una puerta para contactar con las personas correspondientes.</p>
+      </header>
 
-      <section class="house" aria-label="Casa con dos puertas seleccionables">
-        <img src="imagenes/ecuador-1438.jpeg" alt="Fachada de una casa con dos puertas de acceso">
+      <section class="visual-panel" aria-label="Casa con dos puertas seleccionables">
+        <div class="house">
+          <img src="imagenes/ecuador-1438.jpeg" alt="Fachada de una casa con dos puertas de acceso">
+          <!-- Coordenadas proporcionales a la foto original: 1570 × 2097 px. -->
+          <a class="door door-one" href="Puerta1.html" aria-label="Ir a Puerta 1"><span>Puerta 1</span></a>
+          <a class="door door-two" href="Puerta2.html" aria-label="Ir a Puerta 2"><span>Puerta 2</span></a>
+        </div>
 
-        <!-- Las coordenadas están expresadas como porcentajes de la imagen original (1570 × 2097 px). -->
-        <a class="door door-one" href="Puerta 1.html" aria-label="Ir a Puerta 1">
-          <span>Puerta 1</span>
-        </a>
-        <a class="door door-two" href="Puerta 2.html" aria-label="Ir a Puerta 2">
-          <span>Puerta 2</span>
-        </a>
+        <nav class="door-buttons" aria-label="Accesos a las puertas">
+          <a class="button button-one" href="Puerta1.html">Puerta 1</a>
+          <a class="button button-two" href="Puerta2.html">Puerta 2</a>
+        </nav>
       </section>
-
-      <nav class="door-buttons" aria-label="Accesos a las puertas">
-        <a class="button button-one" href="Puerta 1.html">Puerta 1</a>
-        <a class="button button-two" href="Puerta 2.html">Puerta 2</a>
-      </nav>
     </main>
   </body>
 </html>
