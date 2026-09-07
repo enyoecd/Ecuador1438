@@ -125,7 +125,7 @@ body { background: var(--navy); }
   animation: arrow-guide 2.4s ease-in-out infinite;
 }
 
-.door-two::before { animation-delay: .35s; }
+.door-two::before { animation-delay: 0s; }
 
 .door::after {
   content: "";
@@ -225,19 +225,17 @@ body { background: var(--navy); }
   .intro p { margin: 12px auto 0; font-size: clamp(1rem, 1.55vw, 1.2rem); }
 
   .visual-panel {
-    --button-height: 58px;
-    --button-gap: 6px;
     width: 100%;
     height: 100%;
     justify-self: center;
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) var(--button-height);
-    gap: var(--button-gap);
+    grid-template-columns: minmax(88px, 1fr) auto minmax(88px, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 0;
   }
 
   .house {
-    grid-column: 1;
+    grid-column: 2;
     grid-row: 1;
     width: auto;
     height: 100%;
@@ -247,22 +245,21 @@ body { background: var(--navy); }
   }
 
   .door-buttons {
-    display: block;
-    width: min(100%, calc((100dvh - clamp(20px, 3vw, 48px) - 64px) * .7487));
-    justify-self: center;
+    display: contents;
   }
 
   .button {
-    position: absolute;
-    top: 0;
+    position: static;
+    min-width: 88px;
     min-height: 58px;
+    align-self: end;
+    justify-self: center;
     padding: 0 12px;
     white-space: nowrap;
   }
 
-  /* Centros al 53% y 86%: coinciden con las puertas de la fotografía. */
-  .button-one { left: 34%; width: 38%; }
-  .button-two { left: 72%; width: 28%; }
+  .button-one { grid-column: 1; grid-row: 1; }
+  .button-two { grid-column: 3; grid-row: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
