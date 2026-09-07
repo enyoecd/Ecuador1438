@@ -36,12 +36,21 @@ body { background: var(--navy); }
 
 .intro { align-self: center; text-align: center; }
 
+.intro .address {
+  margin: 0 0 4px;
+  color: var(--blue);
+  font-size: clamp(.79rem, 3.5vw, 1rem);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
 .intro h1 {
   margin: 0;
   color: #fff;
-  font-size: clamp(1.25rem, 5vw, 2rem);
-  line-height: 1.15;
+  font-size: clamp(.79rem, 3.5vw, 1rem);
+  line-height: 1.3;
   letter-spacing: .01em;
+  font-weight: 600;
 }
 
 .intro p {
@@ -222,6 +231,10 @@ body { background: var(--navy); }
     text-align: center;
   }
   .intro h1 { font-size: clamp(2rem, 3.4vw, 3.25rem); }
+  .intro .address {
+    margin-bottom: 10px;
+    font-size: clamp(1.1rem, 1.8vw, 1.5rem);
+  }
   .intro p { margin: 12px auto 0; font-size: clamp(1rem, 1.55vw, 1.2rem); }
 
   .visual-panel {
