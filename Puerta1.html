@@ -21,6 +21,34 @@
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       overflow: hidden;
     }
+
+    /* Anillo circular inspirado en el pulso de las puertas de index.html. */
+    .door-avatar-pulse {
+      position: relative;
+      isolation: isolate;
+    }
+
+    .door-avatar-pulse::after {
+      content: "";
+      position: absolute;
+      inset: -4px;
+      z-index: -1;
+      border: 2px solid #38bdf8;
+      border-radius: 9999px;
+      background: rgb(56 189 248 / 12%);
+      box-shadow: 0 0 0 1px rgb(255 255 255 / 30%), 0 0 14px #38bdf8;
+      pointer-events: none;
+      animation: door-avatar-pulse 2.4s ease-in-out infinite;
+    }
+
+    @keyframes door-avatar-pulse {
+      0%, 100% { opacity: .5; transform: scale(1); }
+      50% { opacity: .95; transform: scale(1.09); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .door-avatar-pulse::after { animation: none; }
+    }
   </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-4 text-white">
@@ -35,8 +63,10 @@
 <span aria-hidden="true" class="text-xl leading-none">←</span>
 <span>Regresar</span>
 </button>
-<div class="overflow-hidden rounded-full shadow-lg flex items-center justify-center w-20 h-20 border-4 border-[#1a2a3a] shrink-0">
+<div class="door-avatar-pulse w-20 h-20 shrink-0">
+<div class="overflow-hidden rounded-full shadow-lg flex items-center justify-center w-full h-full border-4 border-[#1a2a3a]">
 <img alt="Puerta 1" class="w-full h-full object-cover" src="imagenes/puerta1.jpeg"/>
+</div>
 </div>
 </div>
 </div>
