@@ -116,8 +116,93 @@
       100% { transform: rotate(24deg); }
     }
 
+    /* Modal Ampliar Imagen styling */
+    .image-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 16, 26, 0.78);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 280ms ease, visibility 280ms ease;
+      padding: 16px;
+      cursor: pointer;
+    }
+
+    .image-modal.active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .image-modal-card {
+      position: relative;
+      max-width: min(88vw, 420px);
+      max-height: 75vh;
+      border-radius: 1.25rem;
+      overflow: hidden;
+      border: 2px solid #38bdf8;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(56, 189, 248, 0.35);
+      transform: scale(0.7);
+      transition: transform 280ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      background: #1a2a3a;
+    }
+
+    .image-modal.active .image-modal-card {
+      transform: scale(1);
+    }
+
+    .image-modal-card img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 75vh;
+      object-fit: contain;
+    }
+
+    .image-modal-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 32px;
+      height: 32px;
+      border-radius: 9999px;
+      background: rgba(26, 42, 58, 0.85);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+      z-index: 10;
+      transition: background 180ms ease;
+    }
+
+    .image-modal-close:hover {
+      background: #38bdf8;
+      color: #1a2a3a;
+    }
+
+    .door-avatar-pulse {
+      cursor: pointer;
+      transition: transform 180ms ease;
+    }
+
+    .door-avatar-pulse:hover {
+      transform: scale(1.05);
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .door-avatar-pulse::after { animation: none; }
+      .image-modal-card { transition: none; }
     }
 </style>
 </head>
@@ -136,7 +221,7 @@
 <span>Timbre</span>
 </button>
 </div>
-<div class="door-avatar-pulse w-20 h-20 shrink-0 mt-2">
+<div id="door-avatar" class="door-avatar-pulse w-20 h-20 shrink-0 mt-2" role="button" aria-label="Ampliar imagen Puerta 1" tabindex="0">
 <div class="overflow-hidden rounded-full shadow-lg flex items-center justify-center w-full h-full border-4 border-[#1a2a3a]">
 <img alt="Puerta 1" class="w-full h-full object-cover" src="imagenes/puerta1.jpeg"/>
 </div>
@@ -178,6 +263,14 @@
   <div class="timbre-modal-card">
     <div class="timbre-bell-icon">🔔</div>
     <p class="timbre-modal-text">Timbre sonando</p>
+  </div>
+</div>
+
+<!-- Modal Ampliar Imagen -->
+<div id="image-modal" class="image-modal" aria-hidden="true" role="dialog" aria-label="Imagen ampliada de Puerta 1">
+  <div class="image-modal-card" id="image-modal-card">
+    <button class="image-modal-close" id="btn-close-image" aria-label="Cerrar imagen">&times;</button>
+    <img alt="Puerta 1 ampliada" src="imagenes/puerta1.jpeg"/>
   </div>
 </div>
 
@@ -230,6 +323,50 @@
         }, 2000);
       });
     }
+
+    // Ampliación de imagen
+    var imgModal = document.getElementById('image-modal');
+    var doorAvatar = document.getElementById('door-avatar');
+    var btnCloseImg = document.getElementById('btn-close-image');
+
+    function openImageModal() {
+      if (!imgModal) return;
+      imgModal.classList.add('active');
+      imgModal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeImageModal() {
+      if (!imgModal) return;
+      imgModal.classList.remove('active');
+      imgModal.setAttribute('aria-hidden', 'true');
+    }
+
+    if (doorAvatar) {
+      doorAvatar.addEventListener('click', openImageModal);
+      doorAvatar.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openImageModal();
+        }
+      });
+    }
+
+    if (imgModal) {
+      imgModal.addEventListener('click', closeImageModal);
+    }
+
+    if (btnCloseImg) {
+      btnCloseImg.addEventListener('click', function(e) {
+        e.stopPropagation();
+        closeImageModal();
+      });
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && imgModal && imgModal.classList.contains('active')) {
+        closeImageModal();
+      }
+    });
   })();
 </script>
 </body>
