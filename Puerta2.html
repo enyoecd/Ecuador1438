@@ -1,9 +1,236 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Puerta 2</title>
-  </head>
-  <body></body>
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Puerta 2 - Contacto</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style data-purpose="custom-colors">
+    :root {
+      --bg-stadium: #1a202c;
+      --card-bg: #2d3748;
+      --input-bg: #ffffff;
+      --button-bg: #f05252;
+      --text-label: #a0aec0;
+      --text-white: #ffffff;
+    }
+    
+    body {
+      background-color: #1a2a3a;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+    }
+
+    .door-avatar-pulse {
+      position: relative;
+      isolation: isolate;
+    }
+
+    .door-avatar-pulse::after {
+      content: "";
+      position: absolute;
+      inset: -4px;
+      z-index: -1;
+      border: 2px solid #f05252;
+      border-radius: 9999px;
+      background: rgb(240 82 82 / 12%);
+      box-shadow: 0 0 0 1px rgb(255 255 255 / 30%), 0 0 14px #f05252;
+      pointer-events: none;
+      animation: door-avatar-pulse 2.4s ease-in-out infinite;
+    }
+
+    @keyframes door-avatar-pulse {
+      0%, 100% { opacity: .5; transform: scale(1); }
+      50% { opacity: .95; transform: scale(1.09); }
+    }
+
+    /* Modal Timbre styling */
+    .timbre-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 16, 26, 0.65);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 220ms ease, visibility 220ms ease;
+      padding: 16px;
+    }
+
+    .timbre-modal.active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .timbre-modal-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 24px 36px;
+      border-radius: 1.5rem;
+      background: #2d3748;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+      transform: scale(0.85);
+      transition: transform 220ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      max-width: 280px;
+      width: 100%;
+      border: 2px solid #f05252;
+      background: linear-gradient(145deg, #2d191e, #1a0f12);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(240, 82, 82, 0.3);
+    }
+
+    .timbre-modal.active .timbre-modal-card {
+      transform: scale(1);
+    }
+
+    .timbre-bell-icon {
+      font-size: 3.2rem;
+      line-height: 1;
+      display: inline-block;
+      transform-origin: top center;
+    }
+
+    .timbre-modal.active .timbre-bell-icon {
+      animation: bell-ring 0.55s ease-in-out infinite alternate;
+    }
+
+    .timbre-modal-text {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #ffe4e6;
+      letter-spacing: 0.02em;
+      text-align: center;
+    }
+
+    @keyframes bell-ring {
+      0% { transform: rotate(-24deg); }
+      100% { transform: rotate(24deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .door-avatar-pulse::after { animation: none; }
+    }
+</style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4 text-white">
+<!-- BEGIN: MainContactCard -->
+<main class="w-full max-w-sm max-h-[calc(100dvh-2rem)] rounded-[2.5rem] overflow-hidden relative shadow-2xl" style="background-color: var(--card-bg);">
+<!-- Header Section with Icon -->
+<div class="relative pt-20 pb-3 flex flex-col items-center">
+<div class="absolute top-4 left-4 right-4 flex items-center justify-between">
+<button aria-label="Regresar a la página anterior" class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-red-300/40 bg-[#f05252] px-3.5 py-1.5 text-sm font-semibold text-white shadow-lg transition duration-200 ease-in-out hover:-translate-x-0.5 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-[#f05252] focus:ring-offset-2 focus:ring-offset-[#2d3748] active:translate-x-0" onclick="window.history.back()" type="button">
+<span aria-hidden="true" class="text-xl leading-none">←</span>
+<span>Regresar</span>
+</button>
+<button id="btn-timbre-p2" class="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-red-300/60 bg-[#f05252]/15 px-3.5 py-1.5 text-sm font-bold text-[#f05252] shadow-lg transition duration-200 ease-in-out hover:bg-[#f05252] hover:text-white focus:outline-none active:scale-95" type="button">
+<span>🔔</span>
+<span>Timbre</span>
+</button>
+</div>
+<div class="door-avatar-pulse w-20 h-20 shrink-0 mt-2">
+<div class="overflow-hidden rounded-full shadow-lg flex items-center justify-center w-full h-full border-4 border-[#1a2a3a]">
+<img alt="Puerta 2" class="w-full h-full object-cover" src="imagenes/puerta2.jpeg"/>
+</div>
+</div>
+<h2 class="text-lg font-bold mt-2 text-red-400">Puerta 2</h2>
+</div>
+
+<!-- Form Section -->
+<form class="px-8 pb-6 space-y-3">
+<!-- Input Group: Name -->
+<div class="space-y-1">
+<label class="block text-xs font-medium text-gray-300 ml-1" for="fullName">Nombre <span class="text-red-500">*</span></label>
+<input class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-red-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400" id="fullName" name="fullName" placeholder="Tu nombre" required="" type="text"/>
+</div>
+<!-- Input Group: Email -->
+<div class="space-y-1">
+<label class="block text-xs font-medium text-gray-300 ml-1" for="email">Correo </label>
+<input class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-red-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400" id="email" name="email" placeholder="correo@ejemplo.com" type="email"/>
+</div>
+<!-- Input Group: Phone -->
+<div class="space-y-1">
+<label class="block text-xs font-medium text-gray-300 ml-1" for="phone">Teléfono </label>
+<input class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-red-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400" id="phone" name="phone" placeholder="Número de teléfono" type="tel"/>
+</div>
+<!-- Input Group: Message -->
+<div class="space-y-1">
+<label class="block text-xs font-medium text-gray-300 ml-1" for="message">Mensaje <span class="text-red-500">*</span></label>
+<textarea class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-red-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400" id="message" name="message" placeholder="¿En qué podemos ayudarte?" required="" rows="2"></textarea>
+</div>
+<!-- Submit Button -->
+<div class="pt-2">
+<button class="w-full py-3 px-4 bg-[#f05252] hover:bg-red-600 text-white font-bold rounded-2xl shadow-lg transition duration-200 ease-in-out transform hover:scale-[1.02]" type="submit">Enviar Mensaje</button>
+</div>
+</form>
+</main>
+
+<!-- Modal Timbre -->
+<div id="timbre-modal" class="timbre-modal" aria-hidden="true" role="dialog">
+  <div class="timbre-modal-card">
+    <div class="timbre-bell-icon">🔔</div>
+    <p class="timbre-modal-text">Timbre sonando</p>
+  </div>
+</div>
+
+<script>
+  (function() {
+    var modal = document.getElementById('timbre-modal');
+    var btnTimbre = document.getElementById('btn-timbre-p2');
+    var timerId = null;
+
+    function playChime() {
+      try {
+        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        var ctx = new AudioCtx();
+        if (ctx.state === 'suspended') ctx.resume();
+
+        var osc1 = ctx.createOscillator();
+        var gain1 = ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(659.25, ctx.currentTime);
+        gain1.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(ctx.currentTime);
+        osc1.stop(ctx.currentTime + 0.9);
+
+        var osc2 = ctx.createOscillator();
+        var gain2 = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(523.25, ctx.currentTime + 0.35);
+        gain2.gain.setValueAtTime(0.35, ctx.currentTime + 0.35);
+        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.4);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(ctx.currentTime + 0.35);
+        osc2.stop(ctx.currentTime + 1.4);
+      } catch (e) {}
+    }
+
+    if (btnTimbre) {
+      btnTimbre.addEventListener('click', function() {
+        modal.classList.add('active');
+        modal.setAttribute('aria-hidden', 'false');
+        playChime();
+        if (timerId) clearTimeout(timerId);
+        timerId = setTimeout(function() {
+          modal.classList.remove('active');
+          modal.setAttribute('aria-hidden', 'true');
+        }, 2000);
+      });
+    }
+  })();
+</script>
+</body>
 </html>

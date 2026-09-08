@@ -1,34 +1,129 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#1a2a3a">
-    <meta name="description" content="Seleccione una puerta para contactar.">
-    <title>Selecciona una puerta</title>
-    <link rel="stylesheet" href="style.css">
-  </head>
-  <body>
-    <main class="page">
-      <header class="intro">
-        <p class="address">Ecuador 1438</p>
-        <h1>Selecciona una puerta</h1>
-        <p>Elige una puerta para contactar con las personas correspondientes.</p>
-      </header>
 
-      <section class="visual-panel" aria-label="Casa con dos puertas seleccionables">
-        <div class="house">
-          <img src="imagenes/ecuador-1438.jpeg" alt="Fachada de una casa con dos puertas de acceso">
-          <!-- Coordenadas proporcionales a la foto original: 1570 × 2097 px. -->
-          <a class="door door-one" href="Puerta1.html" aria-label="Ir a Puerta 1"><span>Puerta 1</span></a>
-          <a class="door door-two" href="Puerta2.html" aria-label="Ir a Puerta 2"><span>Puerta 2</span></a>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1a2a3a">
+  <meta name="description" content="Selecciona una puerta para tocar el timbre o enviar un mensaje.">
+  <title>Ecuador 1438</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <main class="page">
+    <header class="intro">
+      <h1 class="address">Ecuador 1438</h1>
+      <p class="subtitle">Selecciona una puerta para tocar el timbre o enviar un mensaje.</p>
+    </header>
+
+    <section class="visual-panel" aria-label="Casa con dos puertas seleccionables">
+      <div class="house">
+        <img src="imagenes/ecuador-1438.jpeg" alt="Fachada de una casa con dos puertas de acceso">
+        <!-- Coordenadas proporcionales a la foto original: 1570 × 2097 px. -->
+        <a class="door door-one" href="Puerta1.html" aria-label="Ir a Puerta 1"><span>Puerta 1</span></a>
+        <a class="door door-two" href="Puerta2.html" aria-label="Ir a Puerta 2"><span>Puerta 2</span></a>
+      </div>
+
+      <nav class="door-buttons" aria-label="Accesos y timbres de las puertas">
+        <div class="door-group door-group-one">
+          <a class="button button-one" href="Puerta1.html">Mensaje Puerta 1</a>
+          <button class="button button-timbre button-timbre-one" type="button" data-door="1"
+            aria-label="Tocar timbre Puerta 1">
+            <span class="bell-icon" aria-hidden="true">🔔</span> Timbre
+          </button>
         </div>
+        <div class="door-group door-group-two">
+          <a class="button button-two" href="Puerta2.html">Mensaje Puerta 2</a>
+          <button class="button button-timbre button-timbre-two" type="button" data-door="2"
+            aria-label="Tocar timbre Puerta 2">
+            <span class="bell-icon" aria-hidden="true">🔔</span> Timbre
+          </button>
+        </div>
+      </nav>
+    </section>
+  </main>
 
-        <nav class="door-buttons" aria-label="Accesos a las puertas">
-          <a class="button button-one" href="Puerta1.html">Puerta 1</a>
-          <a class="button button-two" href="Puerta2.html">Puerta 2</a>
-        </nav>
-      </section>
-    </main>
-  </body>
+  <!-- Modal / Popup Timbre -->
+  <div id="timbre-modal" class="timbre-modal" aria-hidden="true" role="dialog" aria-live="polite">
+    <div class="timbre-modal-card" id="timbre-modal-card">
+      <div class="timbre-bell-icon" aria-hidden="true">🔔</div>
+      <p class="timbre-modal-text">Timbre sonando</p>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var modal = document.getElementById('timbre-modal');
+      var modalCard = document.getElementById('timbre-modal-card');
+      var timbreButtons = document.querySelectorAll('.button-timbre');
+      var timerId = null;
+
+      function playDoorbellChime() {
+        try {
+          var AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          var ctx = new AudioCtx();
+          if (ctx.state === 'suspended') {
+            ctx.resume();
+          }
+
+          // Tone 1: Ding - E5 (659.25 Hz)
+          var osc1 = ctx.createOscillator();
+          var gain1 = ctx.createGain();
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(659.25, ctx.currentTime);
+          gain1.gain.setValueAtTime(0.3, ctx.currentTime);
+          gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+          osc1.connect(gain1);
+          gain1.connect(ctx.destination);
+          osc1.start(ctx.currentTime);
+          osc1.stop(ctx.currentTime + 0.9);
+
+          // Tone 2: Dong - C5 (523.25 Hz)
+          var osc2 = ctx.createOscillator();
+          var gain2 = ctx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(523.25, ctx.currentTime + 0.35);
+          gain2.gain.setValueAtTime(0.35, ctx.currentTime + 0.35);
+          gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.4);
+          osc2.connect(gain2);
+          gain2.connect(ctx.destination);
+          osc2.start(ctx.currentTime + 0.35);
+          osc2.stop(ctx.currentTime + 1.4);
+        } catch (e) {
+          console.error('Error al reproducir el sonido del timbre:', e);
+        }
+      }
+
+      function triggerTimbre(doorNumber) {
+        modalCard.classList.remove('door-1', 'door-2');
+        modalCard.classList.add('door-' + doorNumber);
+
+        modal.classList.add('active');
+        modal.setAttribute('aria-hidden', 'false');
+
+        playDoorbellChime();
+
+        if (timerId) {
+          clearTimeout(timerId);
+        }
+
+        timerId = setTimeout(function () {
+          modal.classList.remove('active');
+          modal.setAttribute('aria-hidden', 'true');
+        }, 2000);
+      }
+
+      timbreButtons.forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          var door = this.getAttribute('data-door') || '1';
+          triggerTimbre(door);
+        });
+      });
+    })();
+  </script>
+</body>
+
 </html>
