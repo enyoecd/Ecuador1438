@@ -208,7 +208,7 @@
 </head>
 <body class="flex items-center justify-center min-h-screen p-4 text-white">
 <!-- BEGIN: MainContactCard -->
-<main class="w-full max-w-sm max-h-[calc(100dvh-2rem)] rounded-[2.5rem] overflow-hidden relative shadow-2xl" style="background-color: var(--card-bg);">
+<main class="w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-[2.5rem] relative shadow-2xl" style="background-color: var(--card-bg);">
 <!-- Header Section with Icon -->
 <div class="relative pt-20 pb-3 flex flex-col items-center">
 <div class="absolute top-4 left-4 right-4 flex items-center justify-between">
@@ -233,23 +233,35 @@
 <form class="px-8 pb-6 space-y-3">
 <!-- Input Group: Name -->
 <div class="space-y-1">
-<label class="block text-xs font-medium text-gray-300 ml-1" for="fullName">Nombre <span class="text-red-500">*</span></label>
+<label class="block text-xs font-medium text-gray-300 ml-1" for="fullName">Nombre — <span class="text-gray-300 font-semibold">Obligatorio</span> <span class="text-red-500">*</span></label>
 <input class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-sky-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400" id="fullName" name="fullName" placeholder="Tu nombre" required="" type="text"/>
 </div>
 <!-- Input Group: Email -->
 <div class="space-y-1">
-<label class="block text-xs font-medium text-gray-300 ml-1" for="email">Correo </label>
+<label class="block text-xs font-medium text-gray-300 ml-1" for="email">Correo — <span class="text-xs text-gray-400 font-normal">Opcional</span></label>
 <input class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-sky-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400" id="email" name="email" placeholder="correo@ejemplo.com" type="email"/>
 </div>
 <!-- Input Group: Phone -->
 <div class="space-y-1">
-<label class="block text-xs font-medium text-gray-300 ml-1" for="phone">Teléfono </label>
+<label class="block text-xs font-medium text-gray-300 ml-1" for="phone">Teléfono — <span class="text-xs text-gray-400 font-normal">Opcional</span></label>
 <input class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-sky-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400" id="phone" name="phone" placeholder="Número de teléfono" type="tel"/>
 </div>
 <!-- Input Group: Message -->
 <div class="space-y-1">
-<label class="block text-xs font-medium text-gray-300 ml-1" for="message">Mensaje <span class="text-red-500">*</span></label>
+<label class="block text-xs font-medium text-gray-300 ml-1" for="message">Mensaje — <span class="text-gray-300 font-semibold">Obligatorio</span> <span class="text-red-500">*</span></label>
 <textarea class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-sky-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400" id="message" name="message" placeholder="¿En qué podemos ayudarte?" required="" rows="2"></textarea>
+</div>
+<!-- Input Group: Photos -->
+<div class="space-y-1">
+<label class="block text-xs font-medium text-gray-300 ml-1" for="photos">Adjuntar fotografías — <span class="text-xs text-gray-400 font-normal">Opcional</span></label>
+<div class="relative">
+<input accept="image/*" class="hidden" id="photos" multiple="" name="photos" type="file"/>
+<label for="photos" class="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg border-2 border-dashed border-gray-500 hover:border-sky-400 bg-gray-800/50 hover:bg-gray-800 text-gray-200 text-xs font-medium cursor-pointer transition-colors duration-200 active:scale-[0.99] touch-manipulation">
+<svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+<span>Seleccionar fotos</span>
+</label>
+</div>
+<div id="photos-preview" class="flex flex-wrap gap-1.5 pt-1 max-h-24 overflow-y-auto"></div>
 </div>
 <!-- Submit Button -->
 <div class="pt-2">
@@ -377,6 +389,35 @@
         closeImageModal();
       }
     });
+
+    // Vista previa de fotografías seleccionadas
+    var photosInput = document.getElementById('photos');
+    var photosPreview = document.getElementById('photos-preview');
+
+    if (photosInput && photosPreview) {
+      photosInput.addEventListener('change', function() {
+        photosPreview.innerHTML = '';
+        var files = Array.from(this.files);
+        
+        files.forEach(function(file) {
+          if (!file.type.startsWith('image/')) return;
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            var container = document.createElement('div');
+            container.className = 'relative w-12 h-12 rounded-lg overflow-hidden border border-sky-400/40 shrink-0 bg-gray-900';
+            
+            var img = document.createElement('img');
+            img.src = e.target.result;
+            img.className = 'w-full h-full object-cover';
+            img.alt = file.name;
+
+            container.appendChild(img);
+            photosPreview.appendChild(container);
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+    }
   })();
 </script>
 </body>
