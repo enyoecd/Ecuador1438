@@ -181,6 +181,75 @@
       }
     }
 
+    /* Modal Aviso Límite Timbre */
+    .timbre-limit-card {
+      max-width: 320px;
+      width: 90%;
+      padding: 22px 24px;
+      border-radius: 1.5rem;
+      background: linear-gradient(145deg, #1e293b, #0f172a);
+      border: 2px solid #f59e0b;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(245, 158, 11, 0.25);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 12px;
+    }
+
+    .timbre-limit-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .timbre-limit-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 9999px;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #fbbf24;
+    }
+
+    .timbre-limit-icon svg {
+      width: 24px;
+      height: 24px;
+      stroke: #fbbf24;
+    }
+
+    .timbre-limit-title {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fbbf24;
+      letter-spacing: 0.01em;
+      line-height: 1.3;
+    }
+
+    .timbre-limit-text {
+      margin: 0;
+      font-size: 0.92rem;
+      font-weight: 500;
+      color: #e2e8f0;
+      line-height: 1.4;
+    }
+
+    #btn-timbre-p1.timbre-locked, #btn-timbre-p1.timbre-disabled {
+      opacity: 0.55;
+      filter: grayscale(0.5);
+      cursor: pointer;
+    }
+
+    #btn-timbre-p1.timbre-locked:hover, #btn-timbre-p1.timbre-disabled:hover {
+      opacity: 0.75;
+      filter: grayscale(0.2);
+    }
+
     /* Modal Ampliar Imagen styling */
     .image-modal {
       position: fixed;
@@ -382,6 +451,23 @@
     </div>
   </div>
 
+  <!-- Modal Timbre Limitado / Bloqueado -->
+  <div id="timbre-limit-modal" class="timbre-modal" aria-hidden="true" role="dialog" aria-live="assertive">
+    <div class="timbre-modal-card timbre-limit-card">
+      <div class="timbre-limit-header">
+        <div class="timbre-limit-icon" aria-hidden="true">
+          <svg class="w-6 h-6 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </div>
+        <h3 class="timbre-limit-title">Timbre temporalmente limitado</h3>
+      </div>
+      <p class="timbre-limit-text" id="timbre-limit-text">Podrás volver a usarlo en 30 minutos.</p>
+    </div>
+  </div>
+
   <!-- Modal Mensaje Enviado -->
   <div id="msg-modal" class="timbre-modal" aria-hidden="true" role="dialog" aria-live="polite">
     <div class="timbre-modal-card msg-modal-card">
@@ -467,7 +553,7 @@
 
       if (btnTimbre) {
         refreshButton();
-        setInterval(refreshButton, 10000);
+        setInterval(refreshButton, 1000);
 
         btnTimbre.addEventListener('click', function () {
           window.TimbreManager.triggerDoorbell('1', function (result) {

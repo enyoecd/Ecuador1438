@@ -2,6 +2,7 @@
   var BACKEND_URL_P1 = 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
   var BACKEND_URL_P2 = 'https://puerta2-ecuador1438.enyoecd.workers.dev/';
   var LOCK_DURATION_MS = 30 * 60 * 1000; // 30 minutos por defecto si no especifica el backend
+  var limitTimerId = null;
 
   function getBackendUrl(door) {
     var doorStr = String(door);
@@ -36,6 +37,30 @@
     return Math.ceil(diffMs / (60 * 1000));
   }
 
+  function formatRemainingTime(diffMsOrLockUntil) {
+    var diffMs = 0;
+    if (typeof diffMsOrLockUntil === 'number') {
+      // Si el número es mayor a una fecha de timestamp (~1e11), calculamos diff con now
+      if (diffMsOrLockUntil > 100000000000) {
+        diffMs = diffMsOrLockUntil - Date.now();
+      } else {
+        diffMs = diffMsOrLockUntil;
+      }
+    }
+    if (diffMs <= 0) return '0 segundos';
+    var totalSec = Math.ceil(diffMs / 1000);
+    var min = Math.floor(totalSec / 60);
+    var sec = totalSec % 60;
+
+    if (min > 0 && sec > 0) {
+      return min + (min === 1 ? ' minuto' : ' minutos') + ' y ' + sec + (sec === 1 ? ' segundo' : ' segundos');
+    } else if (min > 0) {
+      return min + (min === 1 ? ' minuto' : ' minutos');
+    } else {
+      return sec + (sec === 1 ? ' segundo' : ' segundos');
+    }
+  }
+
   function applyLock(door, minutes) {
     var durationMs = (minutes && minutes > 0) ? (minutes * 60 * 1000) : LOCK_DURATION_MS;
     var state = getState(door);
@@ -43,7 +68,83 @@
     saveState(door, state);
   }
 
+  function ensureLimitModalInDom() {
+    var modal = document.getElementById('timbre-limit-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'timbre-limit-modal';
+      modal.className = 'timbre-modal';
+      modal.setAttribute('aria-hidden', 'true');
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-live', 'assertive');
+      modal.innerHTML = 
+        '<div class="timbre-modal-card timbre-limit-card">' +
+          '<div class="timbre-limit-header">' +
+            '<div class="timbre-limit-icon">' +
+              '<svg class="w-6 h-6 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>' +
+                '<line x1="12" y1="9" x2="12" y2="13"></line>' +
+                '<line x1="12" y1="17" x2="12.01" y2="17"></line>' +
+              '</svg>' +
+            '</div>' +
+            '<h3 class="timbre-limit-title">Timbre temporalmente limitado</h3>' +
+          '</div>' +
+          '<p class="timbre-limit-text" id="timbre-limit-text"></p>' +
+        '</div>';
+      document.body.appendChild(modal);
+
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          hideLimitModal();
+        }
+      });
+    }
+    return modal;
+  }
+
+  function showLimitModal(door, lockUntil) {
+    var modal = ensureLimitModalInDom();
+    var textEl = modal.querySelector('#timbre-limit-text') || modal.querySelector('.timbre-limit-text');
+    var diffMs = lockUntil ? (lockUntil - Date.now()) : (30 * 60 * 1000);
+    if (diffMs < 0) diffMs = 0;
+    var remainingStr = formatRemainingTime(diffMs);
+
+    if (textEl) {
+      textEl.textContent = 'Podrás volver a usarlo en ' + remainingStr + '.';
+    }
+
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+
+    if (limitTimerId) {
+      clearTimeout(limitTimerId);
+    }
+    // El aviso permanece en pantalla 5 segundos (mismo tiempo que confirmación de formulario)
+    limitTimerId = setTimeout(function() {
+      hideLimitModal();
+    }, 5000);
+  }
+
+  function hideLimitModal() {
+    var modal = document.getElementById('timbre-limit-modal');
+    if (modal) {
+      modal.classList.remove('active');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+    if (limitTimerId) {
+      clearTimeout(limitTimerId);
+      limitTimerId = null;
+    }
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      hideLimitModal();
+    }
+  });
+
   function updateButtonState(btn, door) {
+    if (!btn) return;
     var state = getState(door);
     var now = Date.now();
 
@@ -54,17 +155,20 @@
       saveState(door, state);
     }
 
-    var remainingMin = getRemainingMinutes(state.lockUntil);
+    var isLocked = !!(state.lockUntil && now < state.lockUntil);
 
-    if (remainingMin > 0) {
-      btn.disabled = true;
-      btn.classList.add('timbre-disabled', 'opacity-50', 'cursor-not-allowed', 'pointer-events-auto');
-      var tooltip = "Faltan " + remainingMin + (remainingMin === 1 ? " minuto" : " minutos") + " para volver a habilitar el timbre.";
+    // El botón NO debe quedar deshabilitado realmente para seguir recibiendo clics
+    btn.disabled = false;
+
+    if (isLocked) {
+      var diffMs = state.lockUntil - now;
+      var remainingText = formatRemainingTime(diffMs);
+      btn.classList.add('timbre-locked', 'timbre-disabled', 'opacity-50');
+      var tooltip = "Timbre limitado. Podrás volver a usarlo en " + remainingText + ".";
       btn.title = tooltip;
       btn.setAttribute('aria-label', tooltip);
     } else {
-      btn.disabled = false;
-      btn.classList.remove('timbre-disabled', 'opacity-50', 'cursor-not-allowed');
+      btn.classList.remove('timbre-locked', 'timbre-disabled', 'opacity-50');
       btn.removeAttribute('title');
       btn.setAttribute('aria-label', 'Tocar timbre Puerta ' + door);
     }
@@ -74,8 +178,13 @@
     var state = getState(door);
     var now = Date.now();
 
+    // Si ya está bloqueado, NO enviar ningún mensaje y mostrar el aviso visual
     if (state.lockUntil && now < state.lockUntil) {
-      return { allowed: false, remainingMin: getRemainingMinutes(state.lockUntil) };
+      showLimitModal(door, state.lockUntil);
+      if (typeof onResponse === 'function') {
+        onResponse({ allowed: false, isBlocked: true, lockUntil: state.lockUntil, remainingMin: getRemainingMinutes(state.lockUntil) });
+      }
+      return { allowed: false, isBlocked: true, lockUntil: state.lockUntil, remainingMin: getRemainingMinutes(state.lockUntil) };
     }
 
     if (state.lockUntil && now >= state.lockUntil) {
@@ -111,6 +220,7 @@
       if (response.status === 429 || data.bloqueado) {
         var min = data.minutos_restantes || getRemainingMinutes(state.lockUntil) || 30;
         applyLock(door, min);
+        showLimitModal(door, state.lockUntil || (Date.now() + min * 60 * 1000));
         if (typeof onResponse === 'function') {
           onResponse({ allowed: false, isBlocked: true, remainingMin: min });
         }
@@ -124,7 +234,6 @@
         }
         return { allowed: true, isThird: isThird };
       } else {
-        // En caso de respuesta ok por defecto
         if (typeof onResponse === 'function') {
           onResponse({ allowed: true, isThird: isThirdLocal });
         }
@@ -132,7 +241,6 @@
       }
     } catch (error) {
       console.error('Error enviando notificación de timbre:', error);
-      // Si falla la red, mantenemos el comportamiento visual local
       if (typeof onResponse === 'function') {
         onResponse({ allowed: true, isThird: isThirdLocal });
       }
@@ -156,6 +264,9 @@
     updateButtonState: updateButtonState,
     triggerDoorbell: triggerDoorbell,
     getRemainingMinutes: getRemainingMinutes,
+    formatRemainingTime: formatRemainingTime,
+    showLimitModal: showLimitModal,
+    hideLimitModal: hideLimitModal,
     applyLock: applyLock,
     sendForm: sendForm
   };
