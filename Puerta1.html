@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Puerta 1 - Contacto</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<style data-purpose="custom-colors">
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>Puerta 1 - Ecuador 1438</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <style data-purpose="custom-colors">
     :root {
       --bg-stadium: #1a202c;
       --card-bg: #2d3748;
@@ -14,7 +15,7 @@
       --text-label: #a0aec0;
       --text-white: #ffffff;
     }
-    
+
     body {
       background-color: #1a2a3a;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -40,8 +41,17 @@
     }
 
     @keyframes door-avatar-pulse {
-      0%, 100% { opacity: .5; transform: scale(1); }
-      50% { opacity: .95; transform: scale(1.09); }
+
+      0%,
+      100% {
+        opacity: .5;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: .95;
+        transform: scale(1.09);
+      }
     }
 
     /* Modal Timbre styling */
@@ -112,8 +122,13 @@
     }
 
     @keyframes bell-ring {
-      0% { transform: rotate(-24deg); }
-      100% { transform: rotate(24deg); }
+      0% {
+        transform: rotate(-24deg);
+      }
+
+      100% {
+        transform: rotate(24deg);
+      }
     }
 
     /* Modal Mensaje Enviado */
@@ -150,9 +165,20 @@
     }
 
     @keyframes paper-plane-fly {
-      0% { transform: translate(-8px, 6px) scale(0.85); opacity: 0.7; }
-      50% { transform: translate(4px, -4px) scale(1.08); opacity: 1; }
-      100% { transform: translate(10px, -10px) scale(1.02); opacity: 0.95; }
+      0% {
+        transform: translate(-8px, 6px) scale(0.85);
+        opacity: 0.7;
+      }
+
+      50% {
+        transform: translate(4px, -4px) scale(1.08);
+        opacity: 1;
+      }
+
+      100% {
+        transform: translate(10px, -10px) scale(1.02);
+        opacity: 0.95;
+      }
     }
 
     /* Modal Ampliar Imagen styling */
@@ -240,359 +266,401 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .door-avatar-pulse::after { animation: none; }
-      .image-modal-card { transition: none; }
+      .door-avatar-pulse::after {
+        animation: none;
+      }
+
+      .image-modal-card {
+        transition: none;
+      }
     }
-</style>
+  </style>
 </head>
+
 <body class="flex items-center justify-center min-h-screen p-4 text-white">
-<!-- BEGIN: MainContactCard -->
-<main class="w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-[2.5rem] relative shadow-2xl" style="background-color: var(--card-bg);">
-<!-- Header Section with Icon -->
-<div class="relative pt-20 pb-3 flex flex-col items-center">
-<div class="absolute top-4 left-4 right-4 flex items-center justify-between">
-<button aria-label="Regresar a la página anterior" class="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-sky-300/40 bg-[#38bdf8] px-3.5 py-1.5 text-sm font-semibold text-[#1a2a3a] shadow-lg transition duration-200 ease-in-out hover:-translate-x-0.5 hover:bg-sky-400 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] focus:ring-offset-2 focus:ring-offset-[#2d3748] active:translate-x-0" onclick="window.history.back()" type="button">
-<svg class="w-4 h-4 text-[#0f172a] stroke-[2.75] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"></path></svg>
-<span class="leading-none">Regresar</span>
-</button>
-<button id="btn-timbre-p1" class="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-sky-300/60 bg-[#38bdf8]/15 px-3.5 py-1.5 text-sm font-bold text-[#38bdf8] shadow-lg transition duration-200 ease-in-out hover:bg-[#38bdf8] hover:text-[#1a2a3a] focus:outline-none active:scale-95" type="button">
-<span>🔔</span>
-<span>Timbre</span>
-</button>
-</div>
-<div id="door-avatar" class="door-avatar-pulse w-20 h-20 shrink-0 mt-2" role="button" aria-label="Ampliar imagen Puerta 1" tabindex="0">
-<div class="overflow-hidden rounded-full shadow-lg flex items-center justify-center w-full h-full border-4 border-[#1a2a3a]">
-<img alt="Puerta 1" class="w-full h-full object-cover" src="imagenes/puerta1.jpeg"/>
-</div>
-</div>
-<h2 class="text-lg font-bold mt-2 text-sky-300">Puerta 1</h2>
-</div>
+  <!-- BEGIN: MainContactCard -->
+  <main class="w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-[2.5rem] relative shadow-2xl"
+    style="background-color: var(--card-bg);">
+    <!-- Header Section with Icon -->
+    <div class="relative pt-20 pb-3 flex flex-col items-center">
+      <div class="absolute top-4 left-4 right-4 flex items-center justify-between">
+        <button aria-label="Regresar a la página anterior"
+          class="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-sky-300/40 bg-[#38bdf8] px-3.5 py-1.5 text-sm font-semibold text-[#1a2a3a] shadow-lg transition duration-200 ease-in-out hover:-translate-x-0.5 hover:bg-sky-400 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] focus:ring-offset-2 focus:ring-offset-[#2d3748] active:translate-x-0"
+          onclick="window.history.back()" type="button">
+          <svg class="w-4 h-4 text-[#0f172a] stroke-[2.75] shrink-0" fill="none" stroke="currentColor"
+            viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"></path>
+          </svg>
+          <span class="leading-none">Regresar</span>
+        </button>
+        <button id="btn-timbre-p1"
+          class="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-sky-300/60 bg-[#38bdf8]/15 px-3.5 py-1.5 text-sm font-bold text-[#38bdf8] shadow-lg transition duration-200 ease-in-out hover:bg-[#38bdf8] hover:text-[#1a2a3a] focus:outline-none active:scale-95"
+          type="button">
+          <span>🔔</span>
+          <span>Timbre</span>
+        </button>
+      </div>
+      <div id="door-avatar" class="door-avatar-pulse w-20 h-20 shrink-0 mt-2" role="button"
+        aria-label="Ampliar imagen Puerta 1" tabindex="0">
+        <div
+          class="overflow-hidden rounded-full shadow-lg flex items-center justify-center w-full h-full border-4 border-[#1a2a3a]">
+          <img alt="Puerta 1" class="w-full h-full object-cover" src="imagenes/puerta1.jpeg" />
+        </div>
+      </div>
+      <h2 class="text-lg font-bold mt-2 text-sky-300">Puerta 1</h2>
+    </div>
 
-<!-- Form Section -->
-<form class="px-8 pb-6 space-y-3">
-<!-- Input Group: Name -->
-<div class="space-y-1">
-<label class="block text-xs font-medium text-gray-300 ml-1" for="fullName">Nombre — <span class="text-gray-300 font-semibold">Obligatorio</span> <span class="text-red-500">*</span></label>
-<input class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-sky-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400" id="fullName" name="fullName" placeholder="Tu nombre" required="" type="text"/>
-</div>
-<!-- Input Group: Email -->
-<div class="space-y-1">
-<label class="block text-xs font-medium text-gray-300 ml-1" for="email">Correo — <span class="text-xs text-gray-400 font-normal">Opcional</span></label>
-<input class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-sky-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400" id="email" name="email" placeholder="correo@ejemplo.com" type="email"/>
-</div>
-<!-- Input Group: Phone -->
-<div class="space-y-1">
-<label class="block text-xs font-medium text-gray-300 ml-1" for="phone">Teléfono — <span class="text-xs text-gray-400 font-normal">Opcional</span></label>
-<input class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-sky-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400" id="phone" name="phone" placeholder="Número de teléfono" type="tel"/>
-</div>
-<!-- Input Group: Message -->
-<div class="space-y-1">
-<label class="block text-xs font-medium text-gray-300 ml-1" for="message">Mensaje — <span class="text-gray-300 font-semibold">Obligatorio</span> <span class="text-red-500">*</span></label>
-<textarea class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-sky-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400" id="message" name="message" placeholder="¿En qué podemos ayudarte?" required="" rows="2"></textarea>
-</div>
-<!-- Input Group: Photos -->
-<div class="space-y-1">
-<label class="block text-xs font-medium text-gray-300 ml-1" for="photos">Adjuntar fotografías — <span class="text-xs text-gray-400 font-normal">Opcional</span></label>
-<div class="relative">
-<input accept="image/*" class="hidden" id="photos" multiple="" name="photos" type="file"/>
-<label for="photos" class="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg border-2 border-dashed border-gray-500 hover:border-sky-400 bg-gray-800/50 hover:bg-gray-800 text-gray-200 text-xs font-medium cursor-pointer transition-colors duration-200 active:scale-[0.99] touch-manipulation">
-<svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-<span>Seleccionar fotos</span>
-</label>
-</div>
-<div id="photos-preview" class="flex flex-wrap gap-1.5 pt-1 max-h-24 overflow-y-auto"></div>
-</div>
-<!-- Submit Button -->
-<div class="pt-2">
-<button class="w-full py-3 px-4 bg-[#38bdf8] hover:bg-sky-400 text-[#1a2a3a] font-bold rounded-2xl shadow-lg transition duration-200 ease-in-out transform hover:scale-[1.02]" type="submit">Enviar Mensaje</button>
-</div>
-</form>
-</main>
+    <!-- Form Section -->
+    <form class="px-8 pb-6 space-y-3">
+      <!-- Input Group: Name -->
+      <div class="space-y-1">
+        <label class="block text-xs font-medium text-gray-300 ml-1" for="fullName">Nombre — <span
+            class="text-gray-300 font-semibold">Obligatorio</span> <span class="text-red-500">*</span></label>
+        <input
+          class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-sky-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400"
+          id="fullName" name="fullName" placeholder="Tu nombre" required="" type="text" />
+      </div>
+      <!-- Input Group: Email -->
+      <div class="space-y-1">
+        <label class="block text-xs font-medium text-gray-300 ml-1" for="email">Correo — <span
+            class="text-xs text-gray-400 font-normal">Opcional</span></label>
+        <input
+          class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-sky-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400"
+          id="email" name="email" placeholder="correo@ejemplo.com" type="email" />
+      </div>
+      <!-- Input Group: Phone -->
+      <div class="space-y-1">
+        <label class="block text-xs font-medium text-gray-300 ml-1" for="phone">Teléfono — <span
+            class="text-xs text-gray-400 font-normal">Opcional</span></label>
+        <input
+          class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-sky-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400"
+          id="phone" name="phone" placeholder="Número de teléfono" type="tel" />
+      </div>
+      <!-- Input Group: Message -->
+      <div class="space-y-1">
+        <label class="block text-xs font-medium text-gray-300 ml-1" for="message">Mensaje — <span
+            class="text-gray-300 font-semibold">Obligatorio</span> <span class="text-red-500">*</span></label>
+        <textarea
+          class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-sky-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400"
+          id="message" name="message" placeholder="¿En qué podemos ayudarte?" required="" rows="2"></textarea>
+      </div>
+      <!-- Input Group: Photos -->
+      <div class="space-y-1">
+        <label class="block text-xs font-medium text-gray-300 ml-1" for="photos">Adjuntar fotografías — <span
+            class="text-xs text-gray-400 font-normal">Opcional</span></label>
+        <div class="relative">
+          <input accept="image/*" class="hidden" id="photos" multiple="" name="photos" type="file" />
+          <label for="photos"
+            class="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg border-2 border-dashed border-gray-500 hover:border-sky-400 bg-gray-800/50 hover:bg-gray-800 text-gray-200 text-xs font-medium cursor-pointer transition-colors duration-200 active:scale-[0.99] touch-manipulation">
+            <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
+              </path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            <span>Seleccionar fotos</span>
+          </label>
+        </div>
+        <div id="photos-preview" class="flex flex-wrap gap-1.5 pt-1 max-h-24 overflow-y-auto"></div>
+      </div>
+      <!-- Submit Button -->
+      <div class="pt-2">
+        <button
+          class="w-full py-3 px-4 bg-[#38bdf8] hover:bg-sky-400 text-[#1a2a3a] font-bold rounded-2xl shadow-lg transition duration-200 ease-in-out transform hover:scale-[1.02]"
+          type="submit">Enviar Mensaje</button>
+      </div>
+    </form>
+  </main>
 
-<!-- Modal Timbre -->
-<div id="timbre-modal" class="timbre-modal" aria-hidden="true" role="dialog">
-  <div class="timbre-modal-card">
-    <div class="timbre-bell-icon">🔔</div>
-    <p class="timbre-modal-text">Timbre sonando</p>
-  </div>
-</div>
-
-<!-- Modal Mensaje Enviado -->
-<div id="msg-modal" class="timbre-modal" aria-hidden="true" role="dialog" aria-live="polite">
-  <div class="timbre-modal-card msg-modal-card">
-    <div class="msg-modal-content">
-      <svg class="msg-plane-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-        <path d="M1.101 12.102c-.727-.272-.718-.707.034-.988L22.25 3.328c.84-.336 1.455.158 1.18 1.135L19.9 20.354c-.287 1.07-1.01 1.291-1.874.779l-5.46-4.025-2.634 2.535c-.29.29-.536.536-1.1.536l.39-5.558 10.12-9.141c.44-.39-.096-.607-.682-.217L6.19 13.064l-5.089-.962z"/>
-      </svg>
-      <span class="msg-modal-text">Mensaje enviado</span>
+  <!-- Modal Timbre -->
+  <div id="timbre-modal" class="timbre-modal" aria-hidden="true" role="dialog">
+    <div class="timbre-modal-card">
+      <div class="timbre-bell-icon">🔔</div>
+      <p class="timbre-modal-text">Timbre sonando</p>
     </div>
   </div>
-</div>
 
-<!-- Modal Ampliar Imagen -->
-<div id="image-modal" class="image-modal" aria-hidden="true" role="dialog" aria-label="Imagen ampliada de Puerta 1">
-  <div class="image-modal-card" id="image-modal-card">
-    <button class="image-modal-close" id="btn-close-image" aria-label="Cerrar imagen">&times;</button>
-    <img alt="Puerta 1 ampliada" src="imagenes/puerta1.jpeg"/>
+  <!-- Modal Mensaje Enviado -->
+  <div id="msg-modal" class="timbre-modal" aria-hidden="true" role="dialog" aria-live="polite">
+    <div class="timbre-modal-card msg-modal-card">
+      <div class="msg-modal-content">
+        <svg class="msg-plane-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"
+          xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M1.101 12.102c-.727-.272-.718-.707.034-.988L22.25 3.328c.84-.336 1.455.158 1.18 1.135L19.9 20.354c-.287 1.07-1.01 1.291-1.874.779l-5.46-4.025-2.634 2.535c-.29.29-.536.536-1.1.536l.39-5.558 10.12-9.141c.44-.39-.096-.607-.682-.217L6.19 13.064l-5.089-.962z" />
+        </svg>
+        <span class="msg-modal-text">Mensaje enviado</span>
+      </div>
+    </div>
   </div>
-</div>
 
-<script src="timbre.js"></script>
-<script>
-  (function() {
-    function formatDate(d) {
-      var date = d || new Date();
-      var dd = String(date.getDate()).padStart(2, '0');
-      var mm = String(date.getMonth() + 1).padStart(2, '0');
-      var yyyy = date.getFullYear();
-      return dd + '/' + mm + '/' + yyyy;
-    }
+  <!-- Modal Ampliar Imagen -->
+  <div id="image-modal" class="image-modal" aria-hidden="true" role="dialog" aria-label="Imagen ampliada de Puerta 1">
+    <div class="image-modal-card" id="image-modal-card">
+      <button class="image-modal-close" id="btn-close-image" aria-label="Cerrar imagen">&times;</button>
+      <img alt="Puerta 1 ampliada" src="imagenes/puerta1.jpeg" />
+    </div>
+  </div>
 
-    function formatTime(d) {
-      var date = d || new Date();
-      var hh = String(date.getHours()).padStart(2, '0');
-      var mm = String(date.getMinutes()).padStart(2, '0');
-      var ss = String(date.getSeconds()).padStart(2, '0');
-      return hh + ':' + mm + ':' + ss;
-    }
-
-    var modal = document.getElementById('timbre-modal');
-    var modalText = modal ? modal.querySelector('.timbre-modal-text') : null;
-    var btnTimbre = document.getElementById('btn-timbre-p1');
-    var timerId = null;
-
-    function playChime() {
-      try {
-        var AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!AudioCtx) return;
-        var ctx = new AudioCtx();
-        if (ctx.state === 'suspended') ctx.resume();
-
-        var osc1 = ctx.createOscillator();
-        var gain1 = ctx.createGain();
-        osc1.type = 'sine';
-        osc1.frequency.setValueAtTime(659.25, ctx.currentTime);
-        gain1.gain.setValueAtTime(0.3, ctx.currentTime);
-        gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
-        osc1.connect(gain1);
-        gain1.connect(ctx.destination);
-        osc1.start(ctx.currentTime);
-        osc1.stop(ctx.currentTime + 0.9);
-
-        var osc2 = ctx.createOscillator();
-        var gain2 = ctx.createGain();
-        osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(523.25, ctx.currentTime + 0.35);
-        gain2.gain.setValueAtTime(0.35, ctx.currentTime + 0.35);
-        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.4);
-        osc2.connect(gain2);
-        gain2.connect(ctx.destination);
-        osc2.start(ctx.currentTime + 0.35);
-        osc2.stop(ctx.currentTime + 1.4);
-      } catch (e) {}
-    }
-
-    function refreshButton() {
-      if (btnTimbre) {
-        window.TimbreManager.updateButtonState(btnTimbre, '1');
+  <script src="timbre.js"></script>
+  <script>
+    (function () {
+      function formatDate(d) {
+        var date = d || new Date();
+        var dd = String(date.getDate()).padStart(2, '0');
+        var mm = String(date.getMonth() + 1).padStart(2, '0');
+        var yyyy = date.getFullYear();
+        return dd + '/' + mm + '/' + yyyy;
       }
-    }
 
-    if (btnTimbre) {
-      refreshButton();
-      setInterval(refreshButton, 10000);
+      function formatTime(d) {
+        var date = d || new Date();
+        var hh = String(date.getHours()).padStart(2, '0');
+        var mm = String(date.getMinutes()).padStart(2, '0');
+        var ss = String(date.getSeconds()).padStart(2, '0');
+        return hh + ':' + mm + ':' + ss;
+      }
 
-      btnTimbre.addEventListener('click', function() {
-        window.TimbreManager.triggerDoorbell('1', function(result) {
-          if (!result.allowed) {
+      var modal = document.getElementById('timbre-modal');
+      var modalText = modal ? modal.querySelector('.timbre-modal-text') : null;
+      var btnTimbre = document.getElementById('btn-timbre-p1');
+      var timerId = null;
+
+      function playChime() {
+        try {
+          var AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          var ctx = new AudioCtx();
+          if (ctx.state === 'suspended') ctx.resume();
+
+          var osc1 = ctx.createOscillator();
+          var gain1 = ctx.createGain();
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(659.25, ctx.currentTime);
+          gain1.gain.setValueAtTime(0.3, ctx.currentTime);
+          gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+          osc1.connect(gain1);
+          gain1.connect(ctx.destination);
+          osc1.start(ctx.currentTime);
+          osc1.stop(ctx.currentTime + 0.9);
+
+          var osc2 = ctx.createOscillator();
+          var gain2 = ctx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(523.25, ctx.currentTime + 0.35);
+          gain2.gain.setValueAtTime(0.35, ctx.currentTime + 0.35);
+          gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.4);
+          osc2.connect(gain2);
+          gain2.connect(ctx.destination);
+          osc2.start(ctx.currentTime + 0.35);
+          osc2.stop(ctx.currentTime + 1.4);
+        } catch (e) { }
+      }
+
+      function refreshButton() {
+        if (btnTimbre) {
+          window.TimbreManager.updateButtonState(btnTimbre, '1');
+        }
+      }
+
+      if (btnTimbre) {
+        refreshButton();
+        setInterval(refreshButton, 10000);
+
+        btnTimbre.addEventListener('click', function () {
+          window.TimbreManager.triggerDoorbell('1', function (result) {
+            if (!result.allowed) {
+              refreshButton();
+              return;
+            }
+
+            if (modalText) {
+              if (result.isThird) {
+                modalText.textContent = "Timbre sonando. Has alcanzado el límite de 3 toques. Podrás volver a tocar el timbre en 30 minutos.";
+              } else {
+                modalText.textContent = "Timbre sonando";
+              }
+            }
+
+            modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
+            playChime();
+
+            if (timerId) clearTimeout(timerId);
+            timerId = setTimeout(function () {
+              modal.classList.remove('active');
+              modal.setAttribute('aria-hidden', 'true');
+            }, result.isThird ? 4000 : 2500);
+
             refreshButton();
-            return;
+          });
+        });
+      }
+
+      // Manejo de envío de formulario al backend Cloudflare Worker
+      var contactForm = document.querySelector('form');
+      var msgModal = document.getElementById('msg-modal');
+      var msgTimerId = null;
+
+      function showMessageSentNotification() {
+        if (!msgModal) return;
+        msgModal.classList.add('active');
+        msgModal.setAttribute('aria-hidden', 'false');
+        if (msgTimerId) clearTimeout(msgTimerId);
+        msgTimerId = setTimeout(function () {
+          msgModal.classList.remove('active');
+          msgModal.setAttribute('aria-hidden', 'true');
+        }, 5000);
+      }
+
+      if (contactForm) {
+        contactForm.addEventListener('submit', async function (e) {
+          e.preventDefault();
+
+          var nowEnvio = new Date();
+          var fechaEnvio = formatDate(nowEnvio);
+          var horaEnvio = formatTime(nowEnvio);
+
+          var fechaIngreso = sessionStorage.getItem('fechaIngreso') || fechaEnvio;
+          var horaIngreso = sessionStorage.getItem('horaIngreso') || horaEnvio;
+
+          var submitBtn = contactForm.querySelector('button[type="submit"]');
+          var originalBtnText = submitBtn ? submitBtn.textContent : 'Enviar Mensaje';
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Enviando...';
           }
 
-          if (modalText) {
-            if (result.isThird) {
-              modalText.textContent = "Timbre sonando. Has alcanzado el límite de 3 toques. Podrás volver a tocar el timbre en 30 minutos.";
+          var formData = new FormData();
+          var fullNameVal = document.getElementById('fullName') ? document.getElementById('fullName').value.trim() : '';
+          var emailVal = document.getElementById('email') ? document.getElementById('email').value.trim() : '';
+          var phoneVal = document.getElementById('phone') ? document.getElementById('phone').value.trim() : '';
+          var messageVal = document.getElementById('message') ? document.getElementById('message').value.trim() : '';
+          var photosInput = document.getElementById('photos');
+
+          var finalMessage = messageVal +
+            '\nFecha ingreso: ' + fechaIngreso +
+            '\nHora ingreso: ' + horaIngreso +
+            '\n\nFecha envío: ' + fechaEnvio +
+            '\nHora envío: ' + horaEnvio;
+
+          formData.append('nombre', fullNameVal);
+          formData.append('email', emailVal);
+          formData.append('telefono', phoneVal);
+          formData.append('mensaje', finalMessage);
+          formData.append('puerta', 'Puerta 1');
+
+          if (photosInput && photosInput.files && photosInput.files.length > 0) {
+            formData.append('foto', photosInput.files[0]);
+          }
+
+          try {
+            var response = await window.TimbreManager.sendForm(formData, '1');
+            if (response.ok) {
+              showMessageSentNotification();
+              contactForm.reset();
+              var photosPreview = document.getElementById('photos-preview');
+              if (photosPreview) photosPreview.innerHTML = '';
             } else {
-              modalText.textContent = "Timbre sonando";
+              console.error('Hubo un problema al enviar el mensaje');
+            }
+          } catch (err) {
+            console.error('Error al enviar el formulario:', err);
+          } finally {
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = originalBtnText;
             }
           }
-
-          modal.classList.add('active');
-          modal.setAttribute('aria-hidden', 'false');
-          playChime();
-
-          if (timerId) clearTimeout(timerId);
-          timerId = setTimeout(function() {
-            modal.classList.remove('active');
-            modal.setAttribute('aria-hidden', 'true');
-          }, result.isThird ? 4000 : 2500);
-
-          refreshButton();
         });
-      });
-    }
-
-    // Manejo de envío de formulario al backend Cloudflare Worker
-    var contactForm = document.querySelector('form');
-    var msgModal = document.getElementById('msg-modal');
-    var msgTimerId = null;
-
-    function showMessageSentNotification() {
-      if (!msgModal) return;
-      msgModal.classList.add('active');
-      msgModal.setAttribute('aria-hidden', 'false');
-      if (msgTimerId) clearTimeout(msgTimerId);
-      msgTimerId = setTimeout(function() {
-        msgModal.classList.remove('active');
-        msgModal.setAttribute('aria-hidden', 'true');
-      }, 5000);
-    }
-
-    if (contactForm) {
-      contactForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-
-        var nowEnvio = new Date();
-        var fechaEnvio = formatDate(nowEnvio);
-        var horaEnvio = formatTime(nowEnvio);
-
-        var fechaIngreso = sessionStorage.getItem('fechaIngreso') || fechaEnvio;
-        var horaIngreso = sessionStorage.getItem('horaIngreso') || horaEnvio;
-
-        var submitBtn = contactForm.querySelector('button[type="submit"]');
-        var originalBtnText = submitBtn ? submitBtn.textContent : 'Enviar Mensaje';
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.textContent = 'Enviando...';
-        }
-
-        var formData = new FormData();
-        var fullNameVal = document.getElementById('fullName') ? document.getElementById('fullName').value.trim() : '';
-        var emailVal = document.getElementById('email') ? document.getElementById('email').value.trim() : '';
-        var phoneVal = document.getElementById('phone') ? document.getElementById('phone').value.trim() : '';
-        var messageVal = document.getElementById('message') ? document.getElementById('message').value.trim() : '';
-        var photosInput = document.getElementById('photos');
-
-        var finalMessage = messageVal +
-          '\nFecha ingreso: ' + fechaIngreso +
-          '\nHora ingreso: ' + horaIngreso +
-          '\n\nFecha envío: ' + fechaEnvio +
-          '\nHora envío: ' + horaEnvio;
-
-        formData.append('nombre', fullNameVal);
-        formData.append('email', emailVal);
-        formData.append('telefono', phoneVal);
-        formData.append('mensaje', finalMessage);
-        formData.append('puerta', 'Puerta 1');
-
-        if (photosInput && photosInput.files && photosInput.files.length > 0) {
-          formData.append('foto', photosInput.files[0]);
-        }
-
-        try {
-          var response = await window.TimbreManager.sendForm(formData, '1');
-          if (response.ok) {
-            showMessageSentNotification();
-            contactForm.reset();
-            var photosPreview = document.getElementById('photos-preview');
-            if (photosPreview) photosPreview.innerHTML = '';
-          } else {
-            console.error('Hubo un problema al enviar el mensaje');
-          }
-        } catch (err) {
-          console.error('Error al enviar el formulario:', err);
-        } finally {
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalBtnText;
-          }
-        }
-      });
-    }
-
-    // Ampliación de imagen
-    var imgModal = document.getElementById('image-modal');
-    var doorAvatar = document.getElementById('door-avatar');
-    var btnCloseImg = document.getElementById('btn-close-image');
-    var imageTimerId = null;
-
-    function openImageModal() {
-      if (!imgModal) return;
-      imgModal.classList.add('active');
-      imgModal.setAttribute('aria-hidden', 'false');
-
-      if (imageTimerId) clearTimeout(imageTimerId);
-      imageTimerId = setTimeout(function() {
-        closeImageModal();
-      }, 3000);
-    }
-
-    function closeImageModal() {
-      if (!imgModal) return;
-      imgModal.classList.remove('active');
-      imgModal.setAttribute('aria-hidden', 'true');
-      if (imageTimerId) {
-        clearTimeout(imageTimerId);
-        imageTimerId = null;
       }
-    }
 
-    if (doorAvatar) {
-      doorAvatar.addEventListener('click', openImageModal);
-      doorAvatar.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          openImageModal();
-        }
-      });
-    }
+      // Ampliación de imagen
+      var imgModal = document.getElementById('image-modal');
+      var doorAvatar = document.getElementById('door-avatar');
+      var btnCloseImg = document.getElementById('btn-close-image');
+      var imageTimerId = null;
 
-    if (imgModal) {
-      imgModal.addEventListener('click', closeImageModal);
-    }
+      function openImageModal() {
+        if (!imgModal) return;
+        imgModal.classList.add('active');
+        imgModal.setAttribute('aria-hidden', 'false');
 
-    if (btnCloseImg) {
-      btnCloseImg.addEventListener('click', function(e) {
-        e.stopPropagation();
-        closeImageModal();
-      });
-    }
-
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && imgModal && imgModal.classList.contains('active')) {
-        closeImageModal();
+        if (imageTimerId) clearTimeout(imageTimerId);
+        imageTimerId = setTimeout(function () {
+          closeImageModal();
+        }, 3000);
       }
-    });
 
-    // Vista previa de fotografías seleccionadas
-    var photosInput = document.getElementById('photos');
-    var photosPreview = document.getElementById('photos-preview');
+      function closeImageModal() {
+        if (!imgModal) return;
+        imgModal.classList.remove('active');
+        imgModal.setAttribute('aria-hidden', 'true');
+        if (imageTimerId) {
+          clearTimeout(imageTimerId);
+          imageTimerId = null;
+        }
+      }
 
-    if (photosInput && photosPreview) {
-      photosInput.addEventListener('change', function() {
-        photosPreview.innerHTML = '';
-        var files = Array.from(this.files);
-        
-        files.forEach(function(file) {
-          if (!file.type.startsWith('image/')) return;
-          var reader = new FileReader();
-          reader.onload = function(e) {
-            var container = document.createElement('div');
-            container.className = 'relative w-12 h-12 rounded-lg overflow-hidden border border-sky-400/40 shrink-0 bg-gray-900';
-            
-            var img = document.createElement('img');
-            img.src = e.target.result;
-            img.className = 'w-full h-full object-cover';
-            img.alt = file.name;
-
-            container.appendChild(img);
-            photosPreview.appendChild(container);
-          };
-          reader.readAsDataURL(file);
+      if (doorAvatar) {
+        doorAvatar.addEventListener('click', openImageModal);
+        doorAvatar.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openImageModal();
+          }
         });
+      }
+
+      if (imgModal) {
+        imgModal.addEventListener('click', closeImageModal);
+      }
+
+      if (btnCloseImg) {
+        btnCloseImg.addEventListener('click', function (e) {
+          e.stopPropagation();
+          closeImageModal();
+        });
+      }
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && imgModal && imgModal.classList.contains('active')) {
+          closeImageModal();
+        }
       });
-    }
-  })();
-</script>
+
+      // Vista previa de fotografías seleccionadas
+      var photosInput = document.getElementById('photos');
+      var photosPreview = document.getElementById('photos-preview');
+
+      if (photosInput && photosPreview) {
+        photosInput.addEventListener('change', function () {
+          photosPreview.innerHTML = '';
+          var files = Array.from(this.files);
+
+          files.forEach(function (file) {
+            if (!file.type.startsWith('image/')) return;
+            var reader = new FileReader();
+            reader.onload = function (e) {
+              var container = document.createElement('div');
+              container.className = 'relative w-12 h-12 rounded-lg overflow-hidden border border-sky-400/40 shrink-0 bg-gray-900';
+
+              var img = document.createElement('img');
+              img.src = e.target.result;
+              img.className = 'w-full h-full object-cover';
+              img.alt = file.name;
+
+              container.appendChild(img);
+              photosPreview.appendChild(container);
+            };
+            reader.readAsDataURL(file);
+          });
+        });
+      }
+    })();
+  </script>
 </body>
+
 </html>
