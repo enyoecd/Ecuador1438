@@ -47,18 +47,10 @@
         diffMs = diffMsOrLockUntil;
       }
     }
-    if (diffMs <= 0) return '0 segundos';
-    var totalSec = Math.ceil(diffMs / 1000);
-    var min = Math.floor(totalSec / 60);
-    var sec = totalSec % 60;
-
-    if (min > 0 && sec > 0) {
-      return min + (min === 1 ? ' minuto' : ' minutos') + ' y ' + sec + (sec === 1 ? ' segundo' : ' segundos');
-    } else if (min > 0) {
-      return min + (min === 1 ? ' minuto' : ' minutos');
-    } else {
-      return sec + (sec === 1 ? ' segundo' : ' segundos');
-    }
+    if (diffMs <= 0) return '1 minuto';
+    var min = Math.ceil(diffMs / (60 * 1000));
+    if (min <= 0) min = 1;
+    return min + (min === 1 ? ' minuto' : ' minutos');
   }
 
   function applyLock(door, minutes) {
@@ -108,7 +100,7 @@
                 '<line x1="12" y1="17" x2="12.01" y2="17"></line>' +
               '</svg>' +
             '</div>' +
-            '<h3 class="timbre-limit-title">Timbre limitado</h3>' +
+            '<h3 class="timbre-limit-title">Límite alcanzado</h3>' +
           '</div>' +
           '<p class="timbre-limit-text" id="timbre-limit-text"></p>' +
         '</div>';
@@ -129,7 +121,7 @@
     var remainingStr = formatRemainingTime(diffMs);
 
     if (textEl) {
-      textEl.textContent = 'Espera ' + remainingStr + ' para volver a usarlo.';
+      textEl.textContent = 'Vuelve a usarlo en ' + remainingStr + '.';
     }
 
     modal.classList.add('active');
