@@ -68,6 +68,27 @@
     saveState(door, state);
   }
 
+  var globalDismissHandler = null;
+
+  function detachGlobalDismiss() {
+    if (globalDismissHandler) {
+      document.removeEventListener('click', globalDismissHandler, true);
+      document.removeEventListener('touchstart', globalDismissHandler, true);
+      globalDismissHandler = null;
+    }
+  }
+
+  function attachGlobalDismiss() {
+    detachGlobalDismiss();
+    setTimeout(function() {
+      globalDismissHandler = function(e) {
+        hideLimitModal();
+      };
+      document.addEventListener('click', globalDismissHandler, true);
+      document.addEventListener('touchstart', globalDismissHandler, true);
+    }, 50);
+  }
+
   function ensureLimitModalInDom() {
     var modal = document.getElementById('timbre-limit-modal');
     if (!modal) {
@@ -81,22 +102,20 @@
         '<div class="timbre-modal-card timbre-limit-card">' +
           '<div class="timbre-limit-header">' +
             '<div class="timbre-limit-icon">' +
-              '<svg class="w-6 h-6 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+              '<svg class="w-5 h-5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
                 '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>' +
                 '<line x1="12" y1="9" x2="12" y2="13"></line>' +
                 '<line x1="12" y1="17" x2="12.01" y2="17"></line>' +
               '</svg>' +
             '</div>' +
-            '<h3 class="timbre-limit-title">Timbre temporalmente limitado</h3>' +
+            '<h3 class="timbre-limit-title">Timbre limitado</h3>' +
           '</div>' +
           '<p class="timbre-limit-text" id="timbre-limit-text"></p>' +
         '</div>';
       document.body.appendChild(modal);
 
-      modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-          hideLimitModal();
-        }
+      modal.addEventListener('click', function() {
+        hideLimitModal();
       });
     }
     return modal;
@@ -110,16 +129,18 @@
     var remainingStr = formatRemainingTime(diffMs);
 
     if (textEl) {
-      textEl.textContent = 'Podrás volver a usarlo en ' + remainingStr + '.';
+      textEl.textContent = 'Espera ' + remainingStr + ' para volver a usarlo.';
     }
 
     modal.classList.add('active');
     modal.setAttribute('aria-hidden', 'false');
 
+    attachGlobalDismiss();
+
     if (limitTimerId) {
       clearTimeout(limitTimerId);
     }
-    // El aviso permanece en pantalla 5 segundos (mismo tiempo que confirmación de formulario)
+    // El aviso permanece en pantalla 5 segundos o se cierra al tocar la pantalla
     limitTimerId = setTimeout(function() {
       hideLimitModal();
     }, 5000);
@@ -135,6 +156,7 @@
       clearTimeout(limitTimerId);
       limitTimerId = null;
     }
+    detachGlobalDismiss();
   }
 
   document.addEventListener('keydown', function(e) {

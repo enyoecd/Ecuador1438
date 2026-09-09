@@ -21,8 +21,10 @@
       <div class="house">
         <img src="imagenes/ecuador-1438.jpeg" alt="Fachada de una casa con dos puertas de acceso">
         <!-- Coordenadas proporcionales a la foto original: 1570 × 2097 px. -->
-        <a class="door door-one" href="Puerta1.html" aria-label="Ir a Puerta 1"><span>Puerta 1<br>Enviar mensaje</span></a>
-        <a class="door door-two" href="Puerta2.html" aria-label="Ir a Puerta 2"><span>Puerta 2<br>Enviar mensaje</span></a>
+        <a class="door door-one" href="Puerta1.html" aria-label="Ir a Puerta 1"><span>Puerta 1<br>Enviar
+            mensaje</span></a>
+        <a class="door door-two" href="Puerta2.html" aria-label="Ir a Puerta 2"><span>Puerta 2<br>Enviar
+            mensaje</span></a>
       </div>
 
       <nav class="door-buttons" aria-label="Accesos y timbres de las puertas">
@@ -57,15 +59,16 @@
     <div class="timbre-modal-card timbre-limit-card">
       <div class="timbre-limit-header">
         <div class="timbre-limit-icon" aria-hidden="true">
-          <svg class="w-6 h-6 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
             <line x1="12" y1="9" x2="12" y2="13"></line>
             <line x1="12" y1="17" x2="12.01" y2="17"></line>
           </svg>
         </div>
-        <h3 class="timbre-limit-title">Timbre temporalmente limitado</h3>
+        <h3 class="timbre-limit-title">Timbre limitado</h3>
       </div>
-      <p class="timbre-limit-text" id="timbre-limit-text">Podrás volver a usarlo en 30 minutos.</p>
+      <p class="timbre-limit-text" id="timbre-limit-text">Espera 30 minutos para volver a usarlo.</p>
     </div>
   </div>
 
@@ -135,7 +138,7 @@
       }
 
       async function triggerTimbre(doorNumber, btn) {
-        window.TimbreManager.triggerDoorbell(doorNumber, function(result) {
+        window.TimbreManager.triggerDoorbell(doorNumber, function (result) {
           if (!result.allowed) {
             refreshButtons();
             return;
@@ -143,7 +146,7 @@
 
           if (modalText) {
             if (result.isThird) {
-              modalText.textContent = "Timbre sonando. Has alcanzado el límite de 3 toques. Podrás volver a tocar el timbre en 30 minutos.";
+              modalText.textContent = "Timbre sonando. Vuelve a usarlo en 30 minutos.";
             } else {
               modalText.textContent = "Timbre sonando";
             }
