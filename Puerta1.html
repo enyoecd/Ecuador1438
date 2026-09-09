@@ -340,6 +340,22 @@
 <script src="timbre.js"></script>
 <script>
   (function() {
+    function formatDate(d) {
+      var date = d || new Date();
+      var dd = String(date.getDate()).padStart(2, '0');
+      var mm = String(date.getMonth() + 1).padStart(2, '0');
+      var yyyy = date.getFullYear();
+      return dd + '/' + mm + '/' + yyyy;
+    }
+
+    function formatTime(d) {
+      var date = d || new Date();
+      var hh = String(date.getHours()).padStart(2, '0');
+      var mm = String(date.getMinutes()).padStart(2, '0');
+      var ss = String(date.getSeconds()).padStart(2, '0');
+      return hh + ':' + mm + ':' + ss;
+    }
+
     var modal = document.getElementById('timbre-modal');
     var modalText = modal ? modal.querySelector('.timbre-modal-text') : null;
     var btnTimbre = document.getElementById('btn-timbre-p1');
@@ -436,6 +452,13 @@
       contactForm.addEventListener('submit', async function(e) {
         e.preventDefault();
 
+        var nowEnvio = new Date();
+        var fechaEnvio = formatDate(nowEnvio);
+        var horaEnvio = formatTime(nowEnvio);
+
+        var fechaIngreso = sessionStorage.getItem('fechaIngreso') || fechaEnvio;
+        var horaIngreso = sessionStorage.getItem('horaIngreso') || horaEnvio;
+
         var submitBtn = contactForm.querySelector('button[type="submit"]');
         var originalBtnText = submitBtn ? submitBtn.textContent : 'Enviar Mensaje';
         if (submitBtn) {
@@ -450,10 +473,16 @@
         var messageVal = document.getElementById('message') ? document.getElementById('message').value.trim() : '';
         var photosInput = document.getElementById('photos');
 
+        var finalMessage = messageVal +
+          '\nFecha ingreso: ' + fechaIngreso +
+          '\nHora ingreso: ' + horaIngreso +
+          '\n\nFecha envío: ' + fechaEnvio +
+          '\nHora envío: ' + horaEnvio;
+
         formData.append('nombre', fullNameVal);
         formData.append('email', emailVal);
         formData.append('telefono', phoneVal);
-        formData.append('mensaje', messageVal);
+        formData.append('mensaje', finalMessage);
         formData.append('puerta', 'Puerta 1');
 
         if (photosInput && photosInput.files && photosInput.files.length > 0) {

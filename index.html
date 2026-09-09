@@ -55,6 +55,18 @@
   <script src="timbre.js"></script>
   <script>
     (function () {
+      // Capturar fecha y hora de ingreso al entrar mediante el QR a index
+      var nowIngreso = new Date();
+      var dd = String(nowIngreso.getDate()).padStart(2, '0');
+      var mm = String(nowIngreso.getMonth() + 1).padStart(2, '0');
+      var yyyy = nowIngreso.getFullYear();
+      var hh = String(nowIngreso.getHours()).padStart(2, '0');
+      var min = String(nowIngreso.getMinutes()).padStart(2, '0');
+      var ss = String(nowIngreso.getSeconds()).padStart(2, '0');
+
+      sessionStorage.setItem('fechaIngreso', dd + '/' + mm + '/' + yyyy);
+      sessionStorage.setItem('horaIngreso', hh + ':' + min + ':' + ss);
+
       var modal = document.getElementById('timbre-modal');
       var modalCard = document.getElementById('timbre-modal-card');
       var modalText = modal ? modal.querySelector('.timbre-modal-text') : null;
