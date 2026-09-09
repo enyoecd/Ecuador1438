@@ -105,39 +105,40 @@
         });
       }
 
-      function triggerTimbre(doorNumber, btn) {
-        var result = window.TimbreManager.triggerDoorbell(doorNumber);
-        if (!result.allowed) {
-          refreshButtons();
-          return;
-        }
-
-        if (modalText) {
-          if (result.isThird) {
-            modalText.textContent = "Timbre sonando. Has alcanzado el límite de 3 toques. Podrás volver a tocar el timbre en 30 minutos.";
-          } else {
-            modalText.textContent = "Timbre sonando";
+      async function triggerTimbre(doorNumber, btn) {
+        window.TimbreManager.triggerDoorbell(doorNumber, function(result) {
+          if (!result.allowed) {
+            refreshButtons();
+            return;
           }
-        }
 
-        modalCard.classList.remove('door-1', 'door-2');
-        modalCard.classList.add('door-' + doorNumber);
+          if (modalText) {
+            if (result.isThird) {
+              modalText.textContent = "Timbre sonando. Has alcanzado el límite de 3 toques. Podrás volver a tocar el timbre en 30 minutos.";
+            } else {
+              modalText.textContent = "Timbre sonando";
+            }
+          }
 
-        modal.classList.add('active');
-        modal.setAttribute('aria-hidden', 'false');
+          modalCard.classList.remove('door-1', 'door-2');
+          modalCard.classList.add('door-' + doorNumber);
 
-        playDoorbellChime();
+          modal.classList.add('active');
+          modal.setAttribute('aria-hidden', 'false');
 
-        if (timerId) {
-          clearTimeout(timerId);
-        }
+          playDoorbellChime();
 
-        timerId = setTimeout(function () {
-          modal.classList.remove('active');
-          modal.setAttribute('aria-hidden', 'true');
-        }, result.isThird ? 4000 : 2500);
+          if (timerId) {
+            clearTimeout(timerId);
+          }
 
-        refreshButtons();
+          timerId = setTimeout(function () {
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+          }, result.isThird ? 4000 : 2500);
+
+          refreshButtons();
+        });
       }
 
       timbreButtons.forEach(function (btn) {

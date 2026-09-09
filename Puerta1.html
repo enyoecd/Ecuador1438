@@ -336,31 +336,84 @@
       setInterval(refreshButton, 10000);
 
       btnTimbre.addEventListener('click', function() {
-        var result = window.TimbreManager.triggerDoorbell('1');
-        if (!result.allowed) {
+        window.TimbreManager.triggerDoorbell('1', function(result) {
+          if (!result.allowed) {
+            refreshButton();
+            return;
+          }
+
+          if (modalText) {
+            if (result.isThird) {
+              modalText.textContent = "Timbre sonando. Has alcanzado el límite de 3 toques. Podrás volver a tocar el timbre en 30 minutos.";
+            } else {
+              modalText.textContent = "Timbre sonando";
+            }
+          }
+
+          modal.classList.add('active');
+          modal.setAttribute('aria-hidden', 'false');
+          playChime();
+
+          if (timerId) clearTimeout(timerId);
+          timerId = setTimeout(function() {
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+          }, result.isThird ? 4000 : 2500);
+
           refreshButton();
-          return;
+        });
+      });
+    }
+
+    // Manejo de envío de formulario al backend Cloudflare Worker
+    var contactForm = document.querySelector('form');
+    if (contactForm) {
+      contactForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        var submitBtn = contactForm.querySelector('button[type="submit"]');
+        var originalBtnText = submitBtn ? submitBtn.textContent : 'Enviar Mensaje';
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Enviando...';
         }
 
-        if (modalText) {
-          if (result.isThird) {
-            modalText.textContent = "Timbre sonando. Has alcanzado el límite de 3 toques. Podrás volver a tocar el timbre en 30 minutos.";
+        var formData = new FormData();
+        var fullNameVal = document.getElementById('fullName') ? document.getElementById('fullName').value.trim() : '';
+        var emailVal = document.getElementById('email') ? document.getElementById('email').value.trim() : '';
+        var phoneVal = document.getElementById('phone') ? document.getElementById('phone').value.trim() : '';
+        var messageVal = document.getElementById('message') ? document.getElementById('message').value.trim() : '';
+        var photosInput = document.getElementById('photos');
+
+        formData.append('nombre', fullNameVal);
+        formData.append('email', emailVal);
+        formData.append('telefono', phoneVal);
+        formData.append('mensaje', messageVal);
+        formData.append('puerta', 'Puerta 1');
+
+        if (photosInput && photosInput.files && photosInput.files.length > 0) {
+          formData.append('foto', photosInput.files[0]);
+        }
+
+        try {
+          var response = await window.TimbreManager.sendForm(formData, '1');
+          if (response.ok) {
+            alert('¡Mensaje enviado con éxito!');
+            contactForm.reset();
+            var photosPreview = document.getElementById('photos-preview');
+            if (photosPreview) photosPreview.innerHTML = '';
           } else {
-            modalText.textContent = "Timbre sonando";
+            alert('Hubo un problema al enviar el mensaje. Por favor intente nuevamente.');
+          }
+        } catch (err) {
+          console.error('Error al enviar el formulario:', err);
+          alert('No se pudo conectar con el servidor. Por favor verifique su conexión.');
+        } finally {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalBtnText;
           }
         }
-
-        modal.classList.add('active');
-        modal.setAttribute('aria-hidden', 'false');
-        playChime();
-
-        if (timerId) clearTimeout(timerId);
-        timerId = setTimeout(function() {
-          modal.classList.remove('active');
-          modal.setAttribute('aria-hidden', 'true');
-        }, result.isThird ? 4000 : 2500);
-
-        refreshButton();
       });
     }
 
