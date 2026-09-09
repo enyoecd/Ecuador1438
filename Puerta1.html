@@ -252,6 +252,18 @@
       filter: grayscale(0.2);
     }
 
+    select:invalid {
+      color: #9ca3af;
+    }
+
+    select option {
+      color: #111827;
+    }
+
+    select option[disabled] {
+      color: #9ca3af;
+    }
+
     /* Modal Ampliar Imagen styling */
     .image-modal {
       position: fixed;
@@ -406,6 +418,20 @@
         <input
           class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-sky-400 text-gray-900 bg-white shadow-inner text-sm placeholder-gray-400"
           id="phone" name="phone" placeholder="Número de teléfono" type="tel" />
+      </div>
+      <!-- Input Group: Contact Reason -->
+      <div class="space-y-1">
+        <label class="block text-xs font-medium text-gray-300 ml-1" for="contactReason">Motivo de contacto — <span
+            class="text-gray-300 font-semibold">Obligatorio</span> <span class="text-red-500">*</span></label>
+        <select
+          class="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-sky-400 text-gray-900 bg-white shadow-inner text-sm cursor-pointer"
+          id="contactReason" name="contactReason" required="">
+          <option value="" disabled selected hidden>Seleccione un motivo</option>
+          <option value="🖥️ Servicio técnico (computadoras)">🖥️ Servicio técnico (computadoras)</option>
+          <option value="📦 Entrega de paquete">📦 Entrega de paquete</option>
+          <option value="👤 Busco a una persona">👤 Busco a una persona</option>
+          <option value="📋 Otro motivo">📋 Otro motivo</option>
+        </select>
       </div>
       <!-- Input Group: Message -->
       <div class="space-y-1">
@@ -625,11 +651,13 @@
           var fullNameVal = document.getElementById('fullName') ? document.getElementById('fullName').value.trim() : '';
           var emailVal = document.getElementById('email') ? document.getElementById('email').value.trim() : '';
           var phoneVal = document.getElementById('phone') ? document.getElementById('phone').value.trim() : '';
+          var contactReasonVal = document.getElementById('contactReason') ? document.getElementById('contactReason').value.trim() : '';
           var messageVal = document.getElementById('message') ? document.getElementById('message').value.trim() : '';
           var photosInput = document.getElementById('photos');
 
           var finalMessage = messageVal +
-            '\nFecha ingreso: ' + fechaIngreso +
+            '\n\nMotivo de contacto: ' + contactReasonVal +
+            '\n\nFecha ingreso: ' + fechaIngreso +
             '\nHora ingreso: ' + horaIngreso +
             '\n\nFecha envío: ' + fechaEnvio +
             '\nHora envío: ' + horaEnvio;
@@ -637,6 +665,7 @@
           formData.append('nombre', fullNameVal);
           formData.append('email', emailVal);
           formData.append('telefono', phoneVal);
+          formData.append('motivo', contactReasonVal);
           formData.append('mensaje', finalMessage);
           formData.append('puerta', 'Puerta 1');
 
