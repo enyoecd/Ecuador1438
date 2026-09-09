@@ -212,9 +212,9 @@
 <!-- Header Section with Icon -->
 <div class="relative pt-20 pb-3 flex flex-col items-center">
 <div class="absolute top-4 left-4 right-4 flex items-center justify-between">
-<button aria-label="Regresar a la página anterior" class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-sky-300/40 bg-[#38bdf8] px-3.5 py-1.5 text-sm font-semibold text-[#1a2a3a] shadow-lg transition duration-200 ease-in-out hover:-translate-x-0.5 hover:bg-sky-400 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] focus:ring-offset-2 focus:ring-offset-[#2d3748] active:translate-x-0" onclick="window.history.back()" type="button">
-<span aria-hidden="true" class="text-xl leading-none">←</span>
-<span>Regresar</span>
+<button aria-label="Regresar a la página anterior" class="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-sky-300/40 bg-[#38bdf8] px-3.5 py-1.5 text-sm font-semibold text-[#1a2a3a] shadow-lg transition duration-200 ease-in-out hover:-translate-x-0.5 hover:bg-sky-400 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] focus:ring-offset-2 focus:ring-offset-[#2d3748] active:translate-x-0" onclick="window.history.back()" type="button">
+<svg class="w-4 h-4 text-[#0f172a] stroke-[2.75] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"></path></svg>
+<span class="leading-none">Regresar</span>
 </button>
 <button id="btn-timbre-p1" class="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-sky-300/60 bg-[#38bdf8]/15 px-3.5 py-1.5 text-sm font-bold text-[#38bdf8] shadow-lg transition duration-200 ease-in-out hover:bg-[#38bdf8] hover:text-[#1a2a3a] focus:outline-none active:scale-95" type="button">
 <span>🔔</span>
@@ -286,9 +286,11 @@
   </div>
 </div>
 
+<script src="timbre.js"></script>
 <script>
   (function() {
     var modal = document.getElementById('timbre-modal');
+    var modalText = modal ? modal.querySelector('.timbre-modal-text') : null;
     var btnTimbre = document.getElementById('btn-timbre-p1');
     var timerId = null;
 
@@ -323,16 +325,42 @@
       } catch (e) {}
     }
 
+    function refreshButton() {
+      if (btnTimbre) {
+        window.TimbreManager.updateButtonState(btnTimbre, '1');
+      }
+    }
+
     if (btnTimbre) {
+      refreshButton();
+      setInterval(refreshButton, 10000);
+
       btnTimbre.addEventListener('click', function() {
+        var result = window.TimbreManager.triggerDoorbell('1');
+        if (!result.allowed) {
+          refreshButton();
+          return;
+        }
+
+        if (modalText) {
+          if (result.isThird) {
+            modalText.textContent = "Timbre sonando. Has alcanzado el límite de 3 toques. Podrás volver a tocar el timbre en 30 minutos.";
+          } else {
+            modalText.textContent = "Timbre sonando";
+          }
+        }
+
         modal.classList.add('active');
         modal.setAttribute('aria-hidden', 'false');
         playChime();
+
         if (timerId) clearTimeout(timerId);
         timerId = setTimeout(function() {
           modal.classList.remove('active');
           modal.setAttribute('aria-hidden', 'true');
-        }, 2500);
+        }, result.isThird ? 4000 : 2500);
+
+        refreshButton();
       });
     }
 

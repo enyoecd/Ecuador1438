@@ -216,6 +216,18 @@ body { background: var(--navy); }
   box-shadow: 0 2px 8px rgb(0 0 0 / 20%);
 }
 
+.button-timbre:disabled, .button-timbre.timbre-disabled {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  filter: grayscale(0.6);
+  pointer-events: auto !important;
+}
+
+.button-timbre:disabled:hover, .button-timbre.timbre-disabled:hover {
+  transform: none !important;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 20%) !important;
+}
+
 .button-timbre-one {
   border: 1.5px solid var(--blue);
   color: var(--blue);

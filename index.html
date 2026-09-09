@@ -52,10 +52,12 @@
     </div>
   </div>
 
+  <script src="timbre.js"></script>
   <script>
     (function () {
       var modal = document.getElementById('timbre-modal');
       var modalCard = document.getElementById('timbre-modal-card');
+      var modalText = modal ? modal.querySelector('.timbre-modal-text') : null;
       var timbreButtons = document.querySelectorAll('.button-timbre');
       var timerId = null;
 
@@ -96,7 +98,28 @@
         }
       }
 
-      function triggerTimbre(doorNumber) {
+      function refreshButtons() {
+        timbreButtons.forEach(function (btn) {
+          var door = btn.getAttribute('data-door') || '1';
+          window.TimbreManager.updateButtonState(btn, door);
+        });
+      }
+
+      function triggerTimbre(doorNumber, btn) {
+        var result = window.TimbreManager.triggerDoorbell(doorNumber);
+        if (!result.allowed) {
+          refreshButtons();
+          return;
+        }
+
+        if (modalText) {
+          if (result.isThird) {
+            modalText.textContent = "Timbre sonando. Has alcanzado el límite de 3 toques. Podrás volver a tocar el timbre en 30 minutos.";
+          } else {
+            modalText.textContent = "Timbre sonando";
+          }
+        }
+
         modalCard.classList.remove('door-1', 'door-2');
         modalCard.classList.add('door-' + doorNumber);
 
@@ -112,16 +135,22 @@
         timerId = setTimeout(function () {
           modal.classList.remove('active');
           modal.setAttribute('aria-hidden', 'true');
-        }, 2500);
+        }, result.isThird ? 4000 : 2500);
+
+        refreshButtons();
       }
 
       timbreButtons.forEach(function (btn) {
         btn.addEventListener('click', function (e) {
           e.preventDefault();
           var door = this.getAttribute('data-door') || '1';
-          triggerTimbre(door);
+          triggerTimbre(door, this);
         });
       });
+
+      // Inicializar botones y refrescar cada 10 segundos para actualizar el mensaje de minutos si está el mouse encima o cambia
+      refreshButtons();
+      setInterval(refreshButtons, 10000);
     })();
   </script>
 </body>
