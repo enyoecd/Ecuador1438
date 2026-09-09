@@ -116,6 +116,45 @@
       100% { transform: rotate(24deg); }
     }
 
+    /* Modal Mensaje Enviado */
+    .msg-modal-card {
+      max-width: 300px;
+      padding: 24px 32px;
+    }
+
+    .msg-modal-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .msg-plane-icon {
+      width: 2.2rem;
+      height: 2.2rem;
+      color: #38bdf8;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .timbre-modal.active .msg-plane-icon {
+      animation: paper-plane-fly 1.4s ease-in-out infinite alternate;
+    }
+
+    .msg-modal-text {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #e0f2fe;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    @keyframes paper-plane-fly {
+      0% { transform: translate(-8px, 6px) scale(0.85); opacity: 0.7; }
+      50% { transform: translate(4px, -4px) scale(1.08); opacity: 1; }
+      100% { transform: translate(10px, -10px) scale(1.02); opacity: 0.95; }
+    }
+
     /* Modal Ampliar Imagen styling */
     .image-modal {
       position: fixed;
@@ -278,6 +317,18 @@
   </div>
 </div>
 
+<!-- Modal Mensaje Enviado -->
+<div id="msg-modal" class="timbre-modal" aria-hidden="true" role="dialog" aria-live="polite">
+  <div class="timbre-modal-card msg-modal-card">
+    <div class="msg-modal-content">
+      <svg class="msg-plane-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+        <path d="M1.101 12.102c-.727-.272-.718-.707.034-.988L22.25 3.328c.84-.336 1.455.158 1.18 1.135L19.9 20.354c-.287 1.07-1.01 1.291-1.874.779l-5.46-4.025-2.634 2.535c-.29.29-.536.536-1.1.536l.39-5.558 10.12-9.141c.44-.39-.096-.607-.682-.217L6.19 13.064l-5.089-.962z"/>
+      </svg>
+      <span class="msg-modal-text">Mensaje enviado</span>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Ampliar Imagen -->
 <div id="image-modal" class="image-modal" aria-hidden="true" role="dialog" aria-label="Imagen ampliada de Puerta 1">
   <div class="image-modal-card" id="image-modal-card">
@@ -367,6 +418,20 @@
 
     // Manejo de envío de formulario al backend Cloudflare Worker
     var contactForm = document.querySelector('form');
+    var msgModal = document.getElementById('msg-modal');
+    var msgTimerId = null;
+
+    function showMessageSentNotification() {
+      if (!msgModal) return;
+      msgModal.classList.add('active');
+      msgModal.setAttribute('aria-hidden', 'false');
+      if (msgTimerId) clearTimeout(msgTimerId);
+      msgTimerId = setTimeout(function() {
+        msgModal.classList.remove('active');
+        msgModal.setAttribute('aria-hidden', 'true');
+      }, 5000);
+    }
+
     if (contactForm) {
       contactForm.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -398,16 +463,15 @@
         try {
           var response = await window.TimbreManager.sendForm(formData, '1');
           if (response.ok) {
-            alert('¡Mensaje enviado con éxito!');
+            showMessageSentNotification();
             contactForm.reset();
             var photosPreview = document.getElementById('photos-preview');
             if (photosPreview) photosPreview.innerHTML = '';
           } else {
-            alert('Hubo un problema al enviar el mensaje. Por favor intente nuevamente.');
+            console.error('Hubo un problema al enviar el mensaje');
           }
         } catch (err) {
           console.error('Error al enviar el formulario:', err);
-          alert('No se pudo conectar con el servidor. Por favor verifique su conexión.');
         } finally {
           if (submitBtn) {
             submitBtn.disabled = false;
