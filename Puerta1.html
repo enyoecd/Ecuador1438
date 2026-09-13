@@ -285,7 +285,7 @@
       inset: 0;
       z-index: 10000;
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       justify-content: center;
       background: rgba(10, 16, 26, 0.80);
       backdrop-filter: blur(8px);
@@ -294,8 +294,7 @@
       visibility: hidden;
       pointer-events: none;
       transition: opacity 260ms ease, visibility 260ms ease;
-      padding: 16px;
-      padding-bottom: 32px;
+      padding: 20px;
     }
 
     .camara-modal.active {
@@ -312,12 +311,12 @@
       border: 2px solid rgba(239, 68, 68, 0.5);
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(239, 68, 68, 0.2);
       overflow: hidden;
-      transform: translateY(40px) scale(0.95);
+      transform: scale(0.96);
       transition: transform 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
     .camara-modal.active .camara-modal-card {
-      transform: translateY(0) scale(1);
+      transform: scale(1);
     }
 
     .camara-video-wrap {
@@ -791,7 +790,10 @@
   <script src="timbre.js"></script>
   <script>
     (function () {
-      function formatDate(d) {
+    window.ECUADOR1438_WORKER_URL = window.ECUADOR1438_WORKER_URL || 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
+    var WORKER_URL = window.ECUADOR1438_WORKER_URL;
+
+    function formatDate(d) {
         var date = d || new Date();
         var dd = String(date.getDate()).padStart(2, '0');
         var mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -932,12 +934,25 @@
             '\n\nFecha envío: ' + fechaEnvio +
             '\nHora envío: ' + horaEnvio;
 
+          var cameraSessionId = camaraState && camaraState.sessionId ? camaraState.sessionId : '';
+          var viewerUrl = '';
+          if (cameraSessionId) {
+            var viewerBase = new URL('/viewer-p1.html', WORKER_URL);
+            viewerBase.searchParams.set('sessionId', cameraSessionId);
+            viewerBase.searchParams.set('puerta', '1');
+            viewerUrl = viewerBase.toString();
+          }
+
           formData.append('nombre', fullNameVal);
           formData.append('email', emailVal);
           formData.append('telefono', phoneVal);
           formData.append('motivo', contactReasonVal);
           formData.append('mensaje', finalMessage);
           formData.append('puerta', 'Puerta 1');
+          formData.append('session_id', cameraSessionId);
+          if (viewerUrl) {
+            formData.append('viewer_url', viewerUrl);
+          }
 
           if (photosInput && photosInput.files && photosInput.files.length > 0) {
             formData.append('foto', photosInput.files[0]);
@@ -1056,10 +1071,9 @@
     (function () {
       'use strict';
 
-      // URL del Worker (mismo que usa timbre.js)
-      var WORKER_URL = 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
-      // URL de la API de Cloudflare Calls SFU
-      var CALLS_API_BASE = 'https://rtc.live.cloudflare.com/v1/apps';
+      // URL del Worker compartida con el resto de la página.
+      var WORKER_URL = window.ECUADOR1438_WORKER_URL || 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
+      window.ECUADOR1438_WORKER_URL = WORKER_URL;
 
       // ── ESTADO LOCAL ──────────────────────────────────────────
       var camaraState = {
@@ -1070,7 +1084,11 @@
         stream: null,      // MediaStream local
         timerInterval: null,
         timerSeconds: 0,
-        pollingInterval: null
+        pollingInterval: null,
+        broadcastChannel: null,
+        broadcastInterval: null,
+        frameCanvas: null,
+        frameCtx: null
       };
 
       // ── REFS DOM ──────────────────────────────────────────────
@@ -1134,7 +1152,7 @@
 
       function verificarEstadoServidor() {
         if (camaraState.activa) return; // Si soy yo quien transmite, no necesito verificar
-        fetch(WORKER_URL + '?tipo=camara&accion=estado', { method: 'GET' })
+        fetch(WORKER_URL + '?tipo=camara&accion=estado', { method: 'GET', cache: 'no-store' })
           .then(function (r) { return r.json(); })
           .then(function (data) {
             if (data.ocupado) {
@@ -1199,6 +1217,57 @@
         camaraModal.setAttribute('aria-hidden', 'true');
       }
 
+      function iniciarBroadcastLocal() {
+        if (!camaraState.stream || !localVideo) return;
+        if (camaraState.broadcastChannel) return;
+
+        var channel = null;
+        if ('BroadcastChannel' in window) {
+          channel = new BroadcastChannel('ecuador1438-camera-frames');
+        }
+        var canvas = document.createElement('canvas');
+        var ctx = canvas.getContext('2d');
+        camaraState.broadcastChannel = channel;
+        camaraState.frameCanvas = canvas;
+        camaraState.frameCtx = ctx;
+
+        camaraState.broadcastInterval = setInterval(function () {
+          if (!camaraState.activa || !camaraState.stream || !localVideo || !localVideo.videoWidth) return;
+          if (!ctx) return;
+          var w = localVideo.videoWidth || 640;
+          var h = localVideo.videoHeight || 480;
+          if (canvas.width !== w || canvas.height !== h) {
+            canvas.width = w;
+            canvas.height = h;
+          }
+          ctx.drawImage(localVideo, 0, 0, w, h);
+          var dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          var payload = {
+            type: 'camera-frame',
+            sessionId: camaraState.sessionId,
+            dataUrl: dataUrl,
+            ts: Date.now()
+          };
+          if (channel) channel.postMessage(payload);
+          try {
+            localStorage.setItem('ecuador1438-camera-frame', JSON.stringify(payload));
+          } catch (_) {}
+        }, 150);
+      }
+
+      function detenerBroadcastLocal() {
+        if (camaraState.broadcastInterval) {
+          clearInterval(camaraState.broadcastInterval);
+          camaraState.broadcastInterval = null;
+        }
+        if (camaraState.broadcastChannel) {
+          camaraState.broadcastChannel.close();
+          camaraState.broadcastChannel = null;
+        }
+        camaraState.frameCanvas = null;
+        camaraState.frameCtx = null;
+      }
+
       // ── INICIAR TRANSMISIÓN ───────────────────────────────────
       async function iniciarCamara() {
         if (camaraState.activa) return;
@@ -1231,7 +1300,7 @@
         var workerData = {};
         try { workerData = await workerResp.json(); } catch (_) {}
 
-        if (!workerResp.ok || workerData.ocupado) {
+        if (workerResp.status === 409 || workerData.ocupado) {
           stream.getTracks().forEach(function (t) { t.stop(); });
           setCamaraBtn('ocupada');
           mostrarModalOcupado(workerData.mensaje || 'La cámara ya está siendo utilizada.');
@@ -1243,6 +1312,28 @@
           stream.getTracks().forEach(function (t) { t.stop(); });
           setCamaraBtn('idle');
           alert('Error del servidor: ' + workerData.error);
+          return;
+        }
+
+        if (!workerResp.ok) {
+          stream.getTracks().forEach(function (t) { t.stop(); });
+          setCamaraBtn('idle');
+          alert('No se pudo iniciar la cámara. Revisa la conexión con el Worker (' + workerResp.status + ').');
+          return;
+        }
+
+        if (workerData.localMode) {
+          camaraState.sessionId = workerData.sessionId || null;
+          camaraState.appId = workerData.appId || null;
+          camaraState.stream = stream;
+          if (localVideo) localVideo.srcObject = stream;
+          camaraState.activa = true;
+          detenerPolling();
+          iniciarBroadcastLocal();
+          setCamaraBtn('activa');
+          abrirModalCamara();
+          iniciarTimer();
+          if (statusText) statusText.textContent = 'Transmisión activa desde Puerta 1';
           return;
         }
 
@@ -1283,25 +1374,27 @@
           return;
         }
 
-        // Enviar offer a la API de Cloudflare Calls SFU
-        var sfuUrl = CALLS_API_BASE + '/' + camaraState.appId + '/sessions/' + camaraState.sessionId + '/tracks/new';
+        // Enviar la oferta al Worker; el Worker autenticado es quien llama a Cloudflare SFU.
         var tracks = stream.getTracks().map(function (t) {
           return { location: 'local', mid: null, trackName: t.kind };
         });
 
         var sfuResp;
         try {
-          sfuResp = await fetch(sfuUrl, {
+          sfuResp = await fetch(WORKER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              sessionDescription: { type: 'offer', sdp: offer.sdp },
+              tipo: 'camara',
+              accion: 'tracks-new',
+              sessionId: camaraState.sessionId,
+              sessionDescription: { type: offer.type, sdp: offer.sdp },
               tracks: tracks
-            }),
+            })
           });
         } catch (sfuErr) {
           finalizarCamara(true);
-          alert('Error conectando con Cloudflare Calls: ' + sfuErr.message);
+          alert('Error conectando con el Worker de cámara: ' + sfuErr.message);
           return;
         }
 
@@ -1310,11 +1403,11 @@
 
         if (!sfuResp.ok || !sfuData.sessionDescription) {
           finalizarCamara(true);
-          alert('Cloudflare Calls rechazó la conexión. Verifica la configuración.');
+          alert('El Worker rechazó la conexión de cámara. Revisa la configuración del backend Cloudflare.');
           return;
         }
 
-        // 5. Aplicar answer SDP de Cloudflare Calls
+        // 5. Aplicar answer SDP recibido desde el backend/Cloudflare
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(sfuData.sessionDescription));
         } catch (ansErr) {
@@ -1326,6 +1419,7 @@
         // 6. Transmisión activa 🎥
         camaraState.activa = true;
         detenerPolling();
+        iniciarBroadcastLocal();
         setCamaraBtn('activa');
         abrirModalCamara();
         iniciarTimer();
@@ -1365,6 +1459,7 @@
 
         cerrarModalCamara();
         detenerTimer();
+        detenerBroadcastLocal();
         setCamaraBtn('idle');
 
         // Notificar al Worker para liberar el estado en KV

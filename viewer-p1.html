@@ -29,7 +29,13 @@
       background: #000;
       aspect-ratio: 4/3;
     }
-    .video-container video { width: 100%; height: 100%; object-fit: cover; }
+    .video-container video, .video-container canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+      background: #000;
+    }
     .live-badge {
       position: absolute; top: 12px; left: 14px;
       display: flex; align-items: center; gap: 5px;
@@ -93,7 +99,8 @@
   <!-- Estado: conectado (viewer) -->
   <div id="estado-conectado" style="display:none; width:100%; max-width:480px; padding:0 4px;">
     <div class="video-container">
-      <video id="remote-video" autoplay playsinline></video>
+      <canvas id="remote-canvas" width="640" height="480" aria-label="Vista de cámara en vivo"></canvas>
+      <video id="remote-video" autoplay playsinline style="display:none"></video>
       <div class="live-badge">
         <div class="live-dot"></div>
         <span>En vivo</span>
@@ -123,13 +130,15 @@
 
       var viewerState = {
         connected: false, sessionId: null, appId: null, pc: null,
-        localStream: null, micEnabled: false, timerInterval: null, timerSeconds: 0
+        localStream: null, micEnabled: false, timerInterval: null, timerSeconds: 0,
+        channel: null, channelName: 'ecuador1438-camera-frames'
       };
 
       var elCargando    = document.getElementById('estado-cargando');
       var elSinSesion   = document.getElementById('estado-sin-sesion');
       var elConectado   = document.getElementById('estado-conectado');
       var remoteVideo   = document.getElementById('remote-video');
+      var remoteCanvas  = document.getElementById('remote-canvas');
       var localPip      = document.getElementById('local-pip');
       var localVideoPip = document.getElementById('local-video-pip');
       var timerEl       = document.getElementById('viewer-timer');
@@ -146,15 +155,93 @@
         return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
       }
 
+      function renderFrameFromDataUrl(dataUrl) {
+        if (!dataUrl || !remoteCanvas) return;
+        var img = new Image();
+        img.onload = function () {
+          var ctx = remoteCanvas.getContext('2d');
+          if (!ctx) return;
+          remoteCanvas.width = img.width || 640;
+          remoteCanvas.height = img.height || 480;
+          ctx.clearRect(0, 0, remoteCanvas.width, remoteCanvas.height);
+          ctx.drawImage(img, 0, 0, remoteCanvas.width, remoteCanvas.height);
+        };
+        img.src = dataUrl;
+      }
+
+      function aceptarFrameLocal(payload) {
+        if (!payload || payload.type !== 'camera-frame' || !payload.dataUrl) return false;
+        if (payload.sessionId && viewerState.sessionId && payload.sessionId !== viewerState.sessionId) return false;
+        if (payload.ts && Date.now() - Number(payload.ts) > 10000) return false;
+        renderFrameFromDataUrl(payload.dataUrl);
+        return true;
+      }
+
+      function leerFrameLocal() {
+        try {
+          var raw = localStorage.getItem('ecuador1438-camera-frame');
+          if (!raw) return;
+          var payload = JSON.parse(raw);
+          aceptarFrameLocal(payload);
+        } catch (_) {}
+      }
+
+      function iniciarCanalLocal() {
+        if (viewerState.channel) return;
+
+        if ('BroadcastChannel' in window) {
+          viewerState.channel = new BroadcastChannel(viewerState.channelName);
+          viewerState.channel.onmessage = function (event) {
+            aceptarFrameLocal(event.data || {});
+          };
+        }
+
+        window.addEventListener('storage', function (event) {
+          if (!event.key || event.key !== 'ecuador1438-camera-frame' || !event.newValue) return;
+          try {
+            var payload = JSON.parse(event.newValue);
+            aceptarFrameLocal(payload);
+          } catch (_) {}
+        });
+
+        viewerState.framePoller = setInterval(function () {
+          leerFrameLocal();
+        }, 500);
+      }
+
       async function verificarYConectar() {
         mostrar(elCargando);
         var data = {};
         try {
           var r = await fetch(WORKER_URL + '?tipo=camara&accion=estado');
           data = await r.json();
-        } catch (_) { mostrar(elSinSesion); return; }
+        } catch (_) {
+          data = {};
+        }
 
-        if (!data.ocupado) { mostrar(elSinSesion); return; }
+        if (!data.ocupado) {
+          var localFrame = null;
+          try {
+            localFrame = JSON.parse(localStorage.getItem('ecuador1438-camera-frame') || 'null');
+          } catch (_) {}
+          if (localFrame && localFrame.type === 'camera-frame' && localFrame.dataUrl) {
+            viewerState.sessionId = localFrame.sessionId || null;
+            mostrar(elConectado);
+            viewerState.connected = true;
+            viewerState.timerSeconds = 0;
+            if (timerEl) timerEl.textContent = '00:00';
+            if (viewerState.timerInterval) clearInterval(viewerState.timerInterval);
+            viewerState.timerInterval = setInterval(function () {
+              viewerState.timerSeconds++;
+              if (timerEl) timerEl.textContent = formatTime(viewerState.timerSeconds);
+            }, 1000);
+            iniciarCanalLocal();
+            renderFrameFromDataUrl(localFrame.dataUrl);
+            return;
+          }
+          mostrar(elSinSesion);
+          return;
+        }
 
         var initData = {};
         try {
@@ -165,10 +252,36 @@
           initData = await r2.json();
         } catch (_) { mostrar(elSinSesion); return; }
 
-        if (!initData.sessionId || !initData.appId) { mostrar(elSinSesion); return; }
+        if (!initData.sessionId) { mostrar(elSinSesion); return; }
 
         viewerState.sessionId = initData.sessionId;
-        viewerState.appId = initData.appId;
+        viewerState.appId = initData.appId || null;
+
+        if (initData.localMode || !viewerState.appId) {
+          mostrar(elConectado);
+          viewerState.connected = true;
+          viewerState.timerSeconds = 0;
+          if (timerEl) timerEl.textContent = '00:00';
+          if (viewerState.timerInterval) clearInterval(viewerState.timerInterval);
+          viewerState.timerInterval = setInterval(function () {
+            viewerState.timerSeconds++;
+            if (timerEl) timerEl.textContent = formatTime(viewerState.timerSeconds);
+          }, 1000);
+          iniciarCanalLocal();
+          if (remoteCanvas) {
+            var ctx = remoteCanvas.getContext('2d');
+            if (ctx) {
+              ctx.fillStyle = '#0a1019';
+              ctx.fillRect(0, 0, remoteCanvas.width, remoteCanvas.height);
+              ctx.fillStyle = '#38bdf8';
+              ctx.font = 'bold 26px Segoe UI';
+              ctx.textAlign = 'center';
+              ctx.fillText('Cámara en vivo', remoteCanvas.width / 2, remoteCanvas.height / 2);
+            }
+          }
+          return;
+        }
+
         await conectarComoViewer();
       }
 
@@ -255,6 +368,7 @@
 
       function desconectar() {
         if (viewerState.timerInterval) { clearInterval(viewerState.timerInterval); viewerState.timerInterval = null; }
+        if (viewerState.framePoller) { clearInterval(viewerState.framePoller); viewerState.framePoller = null; }
         if (viewerState.localStream) { viewerState.localStream.getTracks().forEach(function (t) { t.stop(); }); viewerState.localStream = null; }
         if (viewerState.pc) { viewerState.pc.close(); viewerState.pc = null; }
         viewerState.connected = false;
