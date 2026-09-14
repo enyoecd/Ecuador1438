@@ -190,6 +190,7 @@
 
       var state = {
         pc: null,
+        remoteStream: null,
         viewerSessionId: null,
         sourceSessionId: null,
         timerInterval: null,
@@ -245,6 +246,7 @@
       function desconectar() {
         if (state.timerInterval) detenerTimer();
         if (state.pc) { state.pc.close(); state.pc = null; }
+        state.remoteStream = null;
         if (remoteVideo) remoteVideo.srcObject = null;
 
         if (state.viewerSessionId) {
@@ -321,9 +323,16 @@
         });
 
         pc.ontrack = function (e) {
-          if (e.streams && e.streams[0] && remoteVideo) {
-            remoteVideo.srcObject = e.streams[0];
-          }
+          if (!remoteVideo || !e.track) return;
+          // Acumular TODAS las pistas remotas (audio y video) en un solo
+          // MediaStream y adjuntarlo al <video>. El SFU puede entregar cada
+          // pista en streams separados: reemplazar srcObject por e.streams[0]
+          // dejaría solo el audio (video en negro).
+          if (!state.remoteStream) state.remoteStream = new MediaStream();
+          e.track.enabled = true;
+          state.remoteStream.addTrack(e.track);
+          remoteVideo.srcObject = state.remoteStream;
+          remoteVideo.play().catch(function () {});
         };
 
         try {

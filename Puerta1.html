@@ -1224,10 +1224,16 @@
           var ofertaInicial = await pc.createOffer();
           await pc.setLocalDescription(ofertaInicial);
           await esperarIceCompleto(pc, 3000);
+          // Registrar explícitamente cada pista de video y audio con el mid de
+          // su transceptor en la oferta local (requerido por el SFU de Calls).
           tracks = pc.getTransceivers().filter(function (tr) {
             return tr.sender && tr.sender.track;
-          }).map(function (tr) {
-            return { location: 'local', mid: tr.mid, trackName: tr.sender.track.kind === 'video' ? 'video' : 'audio' };
+          }).map(function (tr, idx) {
+            return {
+              location: 'local',
+              mid: tr.mid || String(idx),
+              trackName: tr.sender.track.kind === 'video' ? 'video' : 'audio'
+            };
           });
         } catch (sdpErr) {
           limpiarSesionLocal();
