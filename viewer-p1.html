@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>Visor Puerta 1 — Ecuador 1438</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <style>
+    body {
+      background: #0a1019;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #e0f2fe;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+    }
+
+    .video-container {
+      position: relative;
+      width: 100%;
+      max-width: 480px;
+      border-radius: 1.25rem;
+      overflow: hidden;
+      border: 2px solid rgba(56, 189, 248, 0.4);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(56, 189, 248, 0.15);
+      background: #000;
+      aspect-ratio: 4 / 3;
+    }
+
+    .video-container video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .live-badge {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(239, 68, 68, 0.5);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #ef4444;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ef4444;
+      animation: blink 1.1s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.2;
+      }
+    }
+
+    .estado-card {
+      background: linear-gradient(145deg, #1e293b, #0f172a);
+      border: 1.5px solid rgba(56, 189, 248, 0.3);
+      border-radius: 1.5rem;
+      padding: 32px 36px;
+      max-width: 300px;
+      text-align: center;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .btn-reintentar,
+    .btn-colgar {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 200ms ease;
+    }
+
+    .btn-reintentar {
+      margin-top: 16px;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1.5px solid rgba(56, 189, 248, 0.4);
+      color: #38bdf8;
+    }
+
+    .btn-colgar {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1.5px solid rgba(239, 68, 68, 0.5);
+      color: #ef4444;
+    }
+
+    .btn-reintentar:hover {
+      background: rgba(56, 189, 248, 0.28);
+    }
+
+    .btn-colgar:hover {
+      background: rgba(239, 68, 68, 0.28);
+    }
+
+    .footer-controles {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px 4px;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(56, 189, 248, 0.2);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body class="p-4">
+
+  <!-- Estado: conectando -->
+  <div id="estado-cargando" style="text-align:center;">
+    <div class="spinner"></div>
+    <p style="color:#94a3b8; font-size:0.9rem;">Conectando a la transmisión...</p>
+  </div>
+
+  <!-- Estado: sin sesión activa -->
+  <div id="estado-sin-sesion" class="estado-card" style="display:none;">
+    <div style="font-size:3rem; line-height:1; margin-bottom:12px;">📹</div>
+    <h2 style="margin:0 0 8px; font-size:1.1rem; font-weight:700; color:#e0f2fe;">Sin transmisión activa</h2>
+    <p style="margin:0; font-size:0.82rem; color:#94a3b8; line-height:1.4;">
+      No hay ninguna cámara activa en la Puerta 1 en este momento.
+      Activa el botón <b>Cámara</b> desde Puerta 1 para iniciar el video en vivo.
+    </p>
+    <button class="btn-reintentar" id="btn-reintentar">🔄 Reintentar</button>
+  </div>
+
+  <!-- Estado: conectado (video en directo) -->
+  <div id="estado-conectado" style="display:none; width:100%; max-width:480px; padding:0 4px;">
+    <div class="video-container">
+      <video id="remote-video" autoplay playsinline></video>
+      <div class="live-badge">
+        <div class="live-dot"></div>
+        <span>En vivo</span>
+      </div>
+    </div>
+
+    <div class="footer-controles">
+      <div>
+        <p style="margin:0; font-size:0.78rem; font-weight:700; color:#e0f2fe;">Puerta 1 — Ecuador 1438</p>
+        <p style="margin:0; font-size:0.72rem; color:#64748b; font-weight:600;" id="viewer-timer">00:00</p>
+      </div>
+      <button class="btn-colgar" id="btn-colgar">📵 Salir</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var WORKER_URL = 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
+
+      var state = {
+        pc: null,
+        viewerSessionId: null,
+        sourceSessionId: null,
+        timerInterval: null,
+        timerSeconds: 0
+      };
+
+      var elCargando = document.getElementById('estado-cargando');
+      var elSinSesion = document.getElementById('estado-sin-sesion');
+      var elConectado = document.getElementById('estado-conectado');
+      var remoteVideo = document.getElementById('remote-video');
+      var timerEl = document.getElementById('viewer-timer');
+      var btnReintentar = document.getElementById('btn-reintentar');
+      var btnColgar = document.getElementById('btn-colgar');
+
+      function mostrar(el) {
+        [elCargando, elSinSesion, elConectado].forEach(function (e) { if (e) e.style.display = 'none'; });
+        if (el) el.style.display = '';
+      }
+
+      function formatTime(s) {
+        return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+      }
+
+      function iniciarTimer() {
+        state.timerSeconds = 0;
+        if (timerEl) timerEl.textContent = '00:00';
+        if (state.timerInterval) clearInterval(state.timerInterval);
+        state.timerInterval = setInterval(function () {
+          state.timerSeconds++;
+          if (timerEl) timerEl.textContent = formatTime(state.timerSeconds);
+        }, 1000);
+      }
+
+      function detenerTimer() {
+        if (state.timerInterval) {
+          clearInterval(state.timerInterval);
+          state.timerInterval = null;
+        }
+      }
+
+      function esperarIceCompleto(pc, ms) {
+        return new Promise(function (resolve) {
+          if (!pc || pc.iceGatheringState === 'complete') { resolve(); return; }
+          var done = false;
+          var fin = function () { if (!done) { done = true; resolve(); } };
+          pc.addEventListener('icegatheringstatechange', function () {
+            if (pc.iceGatheringState === 'complete') fin();
+          });
+          setTimeout(fin, ms || 3000);
+        });
+      }
+
+      function desconectar() {
+        if (state.timerInterval) detenerTimer();
+        if (state.pc) { state.pc.close(); state.pc = null; }
+        if (remoteVideo) remoteVideo.srcObject = null;
+
+        if (state.viewerSessionId) {
+          var sid = state.viewerSessionId;
+          state.viewerSessionId = null;
+          fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipo: 'camara', accion: 'finalizar-viewer', sessionId: sid })
+          }).catch(function () {});
+        }
+        state.sourceSessionId = null;
+      }
+
+      async function verificarYConectar() {
+        mostrar(elCargando);
+        desconectar();
+
+        var data = {};
+        try {
+          var r = await fetch(WORKER_URL + '?tipo=camara&accion=estado', { cache: 'no-store' });
+          data = await r.json();
+        } catch (_) { mostrar(elSinSesion); return; }
+
+        if (!data.ocupado) { mostrar(elSinSesion); return; }
+
+        // Crear la PeerConnection antes de la sesión: la API de Calls
+        // exige una oferta SDP al crear la sesión del visor.
+        var pc = crearPc();
+        state.pc = pc;
+
+        var offer;
+        try {
+          offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          await esperarIceCompleto(pc, 3000);
+        } catch (_) { mostrar(elSinSesion); return; }
+
+        var init = {};
+        try {
+          var r2 = await fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tipo: 'camara',
+              accion: 'viewer',
+              sessionDescription: { type: 'offer', sdp: pc.localDescription.sdp }
+            })
+          });
+          init = await r2.json();
+        } catch (_) { mostrar(elSinSesion); return; }
+
+        if (!init.sourceSessionId || !init.viewerSessionId) {
+          mostrar(elSinSesion);
+          return;
+        }
+
+        state.sourceSessionId = init.sourceSessionId;
+        state.viewerSessionId = init.viewerSessionId;
+
+        if (init.sessionDescription) {
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(init.sessionDescription));
+          } catch (_) { mostrar(elSinSesion); return; }
+        }
+
+        await conectar(init.sourceTracks);
+      }
+
+      function crearPc() {
+        var pc = new RTCPeerConnection({
+          iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }],
+          bundlePolicy: 'max-bundle'
+        });
+
+        pc.ontrack = function (e) {
+          if (e.streams && e.streams[0] && remoteVideo) {
+            remoteVideo.srcObject = e.streams[0];
+          }
+        };
+
+        try {
+          pc.addTransceiver('video', { direction: 'recvonly' });
+          pc.addTransceiver('audio', { direction: 'recvonly' });
+        } catch (_) {}
+
+        return pc;
+      }
+
+      async function conectar(sourceTracks) {
+        var pc = state.pc;
+        if (!pc) { mostrar(elSinSesion); return; }
+
+        var quedan = (Array.isArray(sourceTracks) && sourceTracks.length)
+          ? sourceTracks
+          : [{ trackName: 'video' }, { trackName: 'audio' }];
+
+        var tracks = quedan.map(function (t) {
+          return { location: 'remote', sessionId: state.sourceSessionId, trackName: t.trackName };
+        });
+
+        // 1. Suscribirse a los tracks del publicador (el SFU envía la oferta)
+        var sub = {};
+        try {
+          var r = await fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tipo: 'camara',
+              accion: 'tracks-new',
+              sessionId: state.viewerSessionId,
+              tracks: tracks
+            })
+          });
+          sub = await r.json();
+        } catch (_) { mostrar(elSinSesion); return; }
+
+        if (!sub.sessionDescription) { mostrar(elSinSesion); return; }
+
+        // 2. Responder con answer al SFU
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(sub.sessionDescription));
+          var answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          await esperarIceCompleto(pc, 3000);
+        } catch (_) { mostrar(elSinSesion); return; }
+
+        try {
+          var r2 = await fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tipo: 'camara',
+              accion: 'renegotiate',
+              sessionId: state.viewerSessionId,
+              sessionDescription: { type: 'answer', sdp: pc.localDescription.sdp }
+            })
+          });
+          var ren = await r2.json();
+          if (!ren.ok) { mostrar(elSinSesion); return; }
+        } catch (_) { mostrar(elSinSesion); return; }
+
+        mostrar(elConectado);
+        iniciarTimer();
+
+        pc.onconnectionstatechange = function () {
+          if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
+            desconectar();
+            mostrar(elSinSesion);
+          }
+        };
+      }
+
+      if (btnReintentar) btnReintentar.addEventListener('click', verificarYConectar);
+      if (btnColgar) {
+        btnColgar.addEventListener('click', function () {
+          desconectar();
+          mostrar(elSinSesion);
+        });
+      }
+
+      verificarYConectar();
+    })();
+  </script>
+</body>
+
+</html>
