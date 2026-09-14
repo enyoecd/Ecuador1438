@@ -1071,7 +1071,17 @@
     (function () {
       'use strict';
 
-      var WORKER_URL = 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
+      // Resolver dinámicamente la URL del backend (permite inyectar en build/env o usar la URL pública)
+      (function () {
+        function detectWorkerUrl() {
+          try {
+            if (window.__WORKER_URL__) return window.__WORKER_URL__;
+          } catch (e) {}
+          return 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
+        }
+        window.WORKER_URL = detectWorkerUrl();
+      })();
+      var WORKER_URL = window.WORKER_URL;
 
       // Límite de transmisión: 5:00 (300 s), se corta automáticamente al alcanzarlo.
       var LIMITE_SEGUNDOS = 5 * 60;
@@ -1346,6 +1356,13 @@
         setModo('cargando');
 
         var stream;
+        // La API getUserMedia requiere un contexto seguro (HTTPS) — salvo localhost
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+          limpiarSesionLocal();
+          setModo('idle');
+          alert('La transmisión de la cámara requiere HTTPS. Accede a la página usando https:// o configura un proxy seguro (ej. Cloudflare, GitHub Pages con HTTPS).');
+          return;
+        }
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         } catch (err) {

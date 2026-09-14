@@ -197,7 +197,22 @@
     (function () {
       'use strict';
 
-      var WORKER_URL = 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
+      // Resolver dinámicamente la URL del backend (permite inyectar en build/env o usar la URL pública)
+      // - Si la app inyecta window.__WORKER_URL__ se usa esa. Si el worker está en el mismo
+      //   origen, puede usarse una ruta relativa. Por defecto, caerá en la URL pública.
+      (function () {
+        function detectWorkerUrl() {
+          try {
+            if (window.__WORKER_URL__) return window.__WORKER_URL__;
+          } catch (e) {}
+          // Si el worker se ha proxyado al mismo origen, usar ruta relativa
+          // (ej. cuando se despliega bajo el mismo host del frontend).
+          // Dejar aquí la URL pública conocida como fallback.
+          return 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
+        }
+        window.WORKER_URL = detectWorkerUrl();
+      })();
+      var WORKER_URL = window.WORKER_URL;
 
       var state = {
         pc: null,
