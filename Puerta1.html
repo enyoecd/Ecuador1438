@@ -387,6 +387,17 @@
       color: #9ca3af;
     }
 
+    #btn-camara-p1.camara-bloqueada {
+      border-color: rgba(245, 158, 11, 0.55);
+      background: rgba(245, 158, 11, 0.12);
+      color: #fbbf24;
+      cursor: pointer;
+    }
+
+    #btn-camara-p1.camara-bloqueada .camara-dot {
+      background: #f59e0b;
+    }
+
     .camara-modal {
       position: fixed;
       inset: 0;
@@ -781,6 +792,15 @@
     </div>
   </div>
 
+  <!-- Modal Cámara Bloqueada (Cooldown de 1 minuto) -->
+  <div id="camara-cooldown-modal" class="camara-busy-modal" aria-hidden="true" role="dialog" aria-live="assertive">
+    <div class="camara-busy-card">
+      <div class="camara-busy-icon">⏳</div>
+      <h3 class="camara-busy-title">Cámara bloqueada</h3>
+      <p class="camara-busy-text" id="camara-cooldown-text">Debes esperar 1 minuto para volver a usar la cámara.</p>
+    </div>
+  </div>
+
   <script src="timbre.js"></script>
   <script>
     (function () {
@@ -1053,6 +1073,9 @@
 
       var WORKER_URL = 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
 
+      // Límite de transmisión: 5:00 (300 s), se corta automáticamente al alcanzarlo.
+      var LIMITE_SEGUNDOS = 5 * 60;
+
       // ── ESTADO LOCAL ──────────────────────────────────────────
       var camaraState = {
         activa: false,
@@ -1062,7 +1085,9 @@
         stream: null,
         timerInterval: null,
         timerSeconds: 0,
-        pollingIniciado: false
+        pollingIniciado: false,
+        bloqueada: false,
+        latidoInterval: null
       };
 
       // ── REFS DOM ──────────────────────────────────────────────
@@ -1075,6 +1100,8 @@
       var btnDetener = document.getElementById('btn-detener-camara');
       var busyModal = document.getElementById('camara-busy-modal');
       var busyText = document.getElementById('camara-busy-text');
+      var cooldownModal = document.getElementById('camara-cooldown-modal');
+      var cooldownText = document.getElementById('camara-cooldown-text');
 
       // ── HELPERS ───────────────────────────────────────────────
       function formatTime(s) {
@@ -1083,7 +1110,7 @@
 
       function setModo(modo) {
         if (!btnCamara) return;
-        btnCamara.classList.remove('camara-activa', 'camara-ocupada');
+        btnCamara.classList.remove('camara-activa', 'camara-ocupada', 'camara-bloqueada');
         var dot = btnCamara.querySelector('.camara-dot');
         if (modo === 'idle') {
           if (dot) dot.style.background = '#34d399';
@@ -1106,15 +1133,26 @@
           if (dot) dot.style.background = '#fbbf24';
           btnCamara.disabled = true;
           if (btnLabel) btnLabel.textContent = '...';
+        } else if (modo === 'bloqueado') {
+          btnCamara.classList.add('camara-bloqueada');
+          if (dot) dot.style.background = '#f59e0b';
+          btnCamara.disabled = false;
+          btnCamara.title = 'Debes esperar 1 minuto para volver a usar la cámara';
+          if (btnLabel) btnLabel.textContent = 'Bloqueada';
         }
       }
 
       // ── POLLING DEL ESTADO DEL SERVIDOR ───────────────────────
       function verificarEstado() {
         if (camaraState.activa) return;
+        if (camaraState.bloqueada) return;
         fetch(WORKER_URL + '?tipo=camara&accion=estado', { cache: 'no-store' })
           .then(function (r) { return r.json().catch(function () { return {}; }); })
-          .then(function (d) { setModo(d.ocupado ? 'ocupada' : 'idle'); })
+          .then(function (d) {
+            if (!camaraState.bloqueada && !camaraState.activa) {
+              setModo(d.ocupado ? 'ocupada' : 'idle');
+            }
+          })
           .catch(function () { /* sin conexión: mantener estado */ });
       }
 
@@ -1143,6 +1181,59 @@
       }
       if (busyModal) busyModal.addEventListener('click', ocultarOcupado);
 
+      // ── COOLDOWN — bloqueo temporal de 1 minuto ───────────────
+      var cooldownHasta = 0;
+      var cooldownIntervalId = null;
+      var cooldownTimerId = null;
+      var cooldownTickId = null;
+
+      function ocultarCooldown() {
+        if (!cooldownModal) return;
+        cooldownModal.classList.remove('active');
+        cooldownModal.setAttribute('aria-hidden', 'true');
+        if (cooldownTimerId) { clearTimeout(cooldownTimerId); cooldownTimerId = null; }
+        if (cooldownTickId) { clearInterval(cooldownTickId); cooldownTickId = null; }
+      }
+
+      function mostrarCooldown() {
+        if (!cooldownModal) return;
+        if (cooldownTickId) clearInterval(cooldownTickId);
+        var actualizar = function () {
+          var restante = cooldownHasta - Date.now();
+          if (restante <= 0) { ocultarCooldown(); return; }
+          if (cooldownText) {
+            cooldownText.textContent = 'Debes esperar ' + Math.round(restante / 1000) +
+              ' segundos para volver a usar la cámara.';
+          }
+        };
+        cooldownModal.classList.add('active');
+        cooldownModal.setAttribute('aria-hidden', 'false');
+        actualizar();
+        cooldownTickId = setInterval(actualizar, 1000);
+        if (cooldownTimerId) clearTimeout(cooldownTimerId);
+        cooldownTimerId = setTimeout(ocultarCooldown, 6000);
+      }
+      if (cooldownModal) cooldownModal.addEventListener('click', ocultarCooldown);
+
+      function iniciarCooldown() {
+        camaraState.bloqueada = true;
+        cooldownHasta = Date.now() + 60 * 1000;
+        setModo('bloqueado');
+        if (cooldownIntervalId) clearInterval(cooldownIntervalId);
+        cooldownIntervalId = setInterval(function () {
+          var restante = cooldownHasta - Date.now();
+          if (btnCamara) {
+            btnCamara.title = 'Debes esperar ' + Math.ceil(restante / 1000) + 's para volver a usar la cámara';
+          }
+          if (restante <= 0) {
+            clearInterval(cooldownIntervalId);
+            cooldownIntervalId = null;
+            camaraState.bloqueada = false;
+            setModo('idle');
+          }
+        }, 1000);
+      }
+
       // ── MODAL DE VIDEO / TIMER ────────────────────────────────
       function abrirModal() {
         if (!camaraModal) return;
@@ -1159,15 +1250,46 @@
         camaraState.timerSeconds = 0;
         if (timerDisplay) timerDisplay.textContent = '00:00';
         if (camaraState.timerInterval) clearInterval(camaraState.timerInterval);
+        iniciarLatido();
         camaraState.timerInterval = setInterval(function () {
           camaraState.timerSeconds++;
           if (timerDisplay) timerDisplay.textContent = formatTime(camaraState.timerSeconds);
+          if (camaraState.timerSeconds >= LIMITE_SEGUNDOS) {
+            finalizarCamara(false);
+          }
         }, 1000);
       }
       function detenerTimer() {
         if (camaraState.timerInterval) {
           clearInterval(camaraState.timerInterval);
           camaraState.timerInterval = null;
+        }
+      }
+
+      // ── LATIDO (renew lease) ──────────────────────────────────
+      // Mientras la transmisión esté activa, renueva en el backend el "lease"
+      // de la sesión (~1 min). Si esta página se cierra sin avisar, el lease
+      // expira y el estado "en uso" se libera solo (sin bloqueos fantasma).
+      function iniciarLatido() {
+        detenerLatido();
+        camaraState.latidoInterval = setInterval(function () {
+          if (!camaraState.activa || !camaraState.sessionId) return;
+          fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tipo: 'camara',
+              accion: 'latido',
+              sessionId: camaraState.sessionId
+            })
+          }).catch(function () { /* best effort */ });
+        }, 20000);
+      }
+
+      function detenerLatido() {
+        if (camaraState.latidoInterval) {
+          clearInterval(camaraState.latidoInterval);
+          camaraState.latidoInterval = null;
         }
       }
 
@@ -1202,8 +1324,25 @@
       }
 
       // ── INICIAR TRANSMISIÓN ───────────────────────────────────
+      // Lee los transceptores con pistas enviadas y devuelve la lista de
+      // tracks locales para registrar en el SFU (required por Calls).
+      // Los `mid` deben coincidir EXACTAMENTE con la oferta SDP que se envía
+      // en la misma llamada; si no, el SFU no publica la pista (video negro).
+      function obtenerTracksLocales(pc) {
+        return pc.getTransceivers().filter(function (tr) {
+          return tr.sender && tr.sender.track && tr.sender.track.readyState !== 'ended';
+        }).map(function (tr, idx) {
+          return {
+            location: 'local',
+            mid: tr.mid || String(idx),
+            trackName: tr.sender.track.kind === 'video' ? 'video' : 'audio'
+          };
+        });
+      }
+
       async function iniciarCamara() {
         if (camaraState.activa) return;
+        if (camaraState.bloqueada) { mostrarCooldown(); return; }
         setModo('cargando');
 
         var stream;
@@ -1224,8 +1363,22 @@
         camaraState.pc = pc;
         camaraState.stream = stream;
 
-        if (localVideo) localVideo.srcObject = stream;
-        stream.getTracks().forEach(function (t) { pc.addTrack(t, stream); });
+        // Verificar y habilitar explícitamente cada pista que se va a publicar.
+        // Si una pista llega deshabilitada o terminada y se manda igual, el
+        // SFU la registra pero no reenvía frames (síntoma: video en negro).
+        var videoTrack = null;
+        stream.getTracks().forEach(function (t) {
+          if (t.readyState === 'ended') return;
+          if (t.enabled !== true) t.enabled = true;
+          if (t.kind === 'video') videoTrack = t;
+          pc.addTrack(t, stream);
+        });
+
+        if (localVideo) {
+          localVideo.srcObject = stream;
+          // Forzar el render local: confirma que la cámara entrega frames.
+          localVideo.play().catch(function () {});
+        }
 
         var tracks;
         try {
@@ -1234,21 +1387,17 @@
           await esperarIceCompleto(pc, 3000);
           // Registrar explícitamente cada pista de video y audio con el mid de
           // su transceptor en la oferta local (requerido por el SFU de Calls).
-          tracks = pc.getTransceivers().filter(function (tr) {
-            return tr.sender && tr.sender.track;
-          }).map(function (tr, idx) {
-            return {
-              location: 'local',
-              mid: tr.mid || String(idx),
-              trackName: tr.sender.track.kind === 'video' ? 'video' : 'audio'
-            };
-          });
+          tracks = obtenerTracksLocales(pc);
         } catch (sdpErr) {
           limpiarSesionLocal();
           setModo('idle');
           alert('Error creando oferta WebRTC: ' + sdpErr.message);
           return;
         }
+        console.info('[Cámara] Pistas a publicar:', {
+          video: videoTrack ? { active: videoTrack.readyState === 'live', enabled: videoTrack.enabled } : 'sin pista',
+          tracks: tracks.map(function (t) { return { mid: t.mid, trackName: t.trackName }; })
+        });
 
         // 2. Reservar sesión en el backend (crea la sesión SFU con la oferta)
         var workerData = {};
@@ -1305,6 +1454,11 @@
           var ofertaTracks = await pc.createOffer();
           await pc.setLocalDescription(ofertaTracks);
           await esperarIceCompleto(pc, 3000);
+
+          // Volver a leer los transceptores sobre la oferta renegociada:
+          // los `mid` deben coincidir con esta SDP (no con la primera), de lo
+          // contrario el SFU filtra la pista de video y el visor la ve negra.
+          tracks = obtenerTracksLocales(pc);
 
           var sfuResp = await fetch(WORKER_URL, {
             method: 'POST',
@@ -1371,6 +1525,7 @@
       function finalizarCamara(error) {
         if (!camaraState.activa && !camaraState.sessionId) return;
         var sessionId = camaraState.sessionId;
+        var transmisionActiva = camaraState.activa;
 
         camaraState.activa = false;
         camaraState.sessionId = null;
@@ -1384,6 +1539,7 @@
         if (localVideo) localVideo.srcObject = null;
         cerrarModal();
         detenerTimer();
+        detenerLatido();
         setModo('idle');
 
         if (sessionId) {
@@ -1394,11 +1550,19 @@
           }).catch(function () { /* best effort */ });
         }
         verificarEstado();
+
+        if (transmisionActiva) {
+          iniciarCooldown();
+        }
       }
 
       // ── EVENT LISTENERS ───────────────────────────────────────
       if (btnCamara) {
         btnCamara.addEventListener('click', function () {
+          if (camaraState.bloqueada) {
+            mostrarCooldown();
+            return;
+          }
           if (camaraState.activa) {
             finalizarCamara(false);
           } else {
@@ -1415,6 +1579,29 @@
       }
 
       window.addEventListener('beforeunload', function () {
+        if (camaraState.activa && camaraState.sessionId) {
+          var payload = JSON.stringify({ tipo: 'camara', accion: 'finalizar', sessionId: camaraState.sessionId });
+          try {
+            navigator.sendBeacon(
+              WORKER_URL,
+              new Blob([payload], { type: 'application/json' })
+            );
+          } catch (_) {}
+        }
+      });
+
+      // Liberar obligatoriamente el hardware de la cámara (track.stop()) y
+      // avisar al backend cuando la página se oculta o se descarga. Cubre
+      // casos en los que beforeunload no se dispara (móvil / pagehide).
+      window.addEventListener('pagehide', function () {
+        if (camaraState.stream) {
+          camaraState.stream.getTracks().forEach(function (t) { t.stop(); });
+          camaraState.stream = null;
+        }
+        if (camaraState.pc) { try { camaraState.pc.close(); } catch (_) {} camaraState.pc = null; }
+        if (localVideo) localVideo.srcObject = null;
+        detenerTimer();
+        detenerLatido();
         if (camaraState.activa && camaraState.sessionId) {
           var payload = JSON.stringify({ tipo: 'camara', accion: 'finalizar', sessionId: camaraState.sessionId });
           try {

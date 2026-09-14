@@ -163,6 +163,17 @@
     <button class="btn-reintentar" id="btn-reintentar">🔄 Reintentar</button>
   </div>
 
+  <!-- Estado: tiempo de transmisión finalizado (5:00) -->
+  <div id="estado-tiempo-terminado" class="estado-card" style="display:none;">
+    <div style="font-size:3rem; line-height:1; margin-bottom:12px;">⏱️</div>
+    <h2 style="margin:0 0 8px; font-size:1.1rem; font-weight:700; color:#e0f2fe;">Tiempo terminado</h2>
+    <p style="margin:0; font-size:0.82rem; color:#94a3b8; line-height:1.4;">
+      La transmisión en vivo ha alcanzado su límite de 5 minutos.
+      Recarga la página o espera una nueva llamada para volver a conectarte.
+    </p>
+    <button class="btn-reintentar" id="btn-recargar">🔄 Recargar</button>
+  </div>
+
   <!-- Estado: conectado (video en directo) -->
   <div id="estado-conectado" style="display:none; width:100%; max-width:480px; padding:0 4px;">
     <div class="video-container">
@@ -194,19 +205,38 @@
         viewerSessionId: null,
         sourceSessionId: null,
         timerInterval: null,
-        timerSeconds: 0
+        timerSeconds: 0,
+        tiempoTerminado: false
       };
+
+      // Límite de visualización: 5:00 (300 s).
+      var LIMITE_SEGUNDOS = 5 * 60;
 
       var elCargando = document.getElementById('estado-cargando');
       var elSinSesion = document.getElementById('estado-sin-sesion');
       var elConectado = document.getElementById('estado-conectado');
+      var elTiempoTerminado = document.getElementById('estado-tiempo-terminado');
       var remoteVideo = document.getElementById('remote-video');
       var timerEl = document.getElementById('viewer-timer');
       var btnReintentar = document.getElementById('btn-reintentar');
       var btnColgar = document.getElementById('btn-colgar');
+      var btnRecargar = document.getElementById('btn-recargar');
+
+      // Refuerzo: si el <video> carga metadatos o se queda "stalled", reintentar
+      // el play() (evita quedar congelado en negro tras el reenvío de pistas).
+      if (remoteVideo) {
+        remoteVideo.addEventListener('loadedmetadata', function () {
+          remoteVideo.play().catch(function () {});
+        });
+        remoteVideo.addEventListener('stalled', function () {
+          if (state.remoteStream && state.remoteStream.getVideoTracks().length) {
+            remoteVideo.play().catch(function () {});
+          }
+        });
+      }
 
       function mostrar(el) {
-        [elCargando, elSinSesion, elConectado].forEach(function (e) { if (e) e.style.display = 'none'; });
+        [elCargando, elSinSesion, elConectado, elTiempoTerminado].forEach(function (e) { if (e) e.style.display = 'none'; });
         if (el) el.style.display = '';
       }
 
@@ -221,7 +251,18 @@
         state.timerInterval = setInterval(function () {
           state.timerSeconds++;
           if (timerEl) timerEl.textContent = formatTime(state.timerSeconds);
+          if (state.timerSeconds >= LIMITE_SEGUNDOS) {
+            tiempoTerminado();
+          }
         }, 1000);
+      }
+
+      function tiempoTerminado() {
+        if (state.tiempoTerminado) return;
+        state.tiempoTerminado = true;
+        desconectar();
+        if (timerEl) timerEl.textContent = '05:00';
+        mostrar(elTiempoTerminado);
       }
 
       function detenerTimer() {
@@ -264,6 +305,7 @@
       async function verificarYConectar() {
         mostrar(elCargando);
         desconectar();
+        state.tiempoTerminado = false;
 
         var data = {};
         try {
@@ -324,15 +366,32 @@
 
         pc.ontrack = function (e) {
           if (!remoteVideo || !e.track) return;
+          // Activar la pista si llegó deshabilitada (el SFU puede entregarla
+          // así si el publicador no la habilitó explícitamente).
+          e.track.enabled = true;
+
           // Acumular TODAS las pistas remotas (audio y video) en un solo
           // MediaStream y adjuntarlo al <video>. El SFU puede entregar cada
           // pista en streams separados: reemplazar srcObject por e.streams[0]
           // dejaría solo el audio (video en negro).
           if (!state.remoteStream) state.remoteStream = new MediaStream();
-          e.track.enabled = true;
-          state.remoteStream.addTrack(e.track);
+
+          // Evitar duplicar pistas si el SFU reenvía el mismo track más de una vez.
+          var yaExiste = state.remoteStream.getTracks().some(function (t) { return t.id === e.track.id; });
+          if (!yaExiste) {
+            state.remoteStream.addTrack(e.track);
+          }
+
+          // Reasignar el MediaStream acumulado en CADA evento de pista y llamar
+          // a play() de inmediato: en algunos navegadores, si el elemento entró
+          // en reproducción solo con audio y "reconoce" la pista de video tarde,
+          // queda congelado en negro hasta que se reasigna srcObject.
           remoteVideo.srcObject = state.remoteStream;
           remoteVideo.play().catch(function () {});
+
+          if (e.track.kind === 'video') {
+            console.info('[Visor] Pista de video recibida:', e.track.id);
+          }
         };
 
         try {
@@ -400,6 +459,7 @@
         iniciarTimer();
 
         pc.onconnectionstatechange = function () {
+          if (state.tiempoTerminado) return;
           if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
             desconectar();
             mostrar(elSinSesion);
@@ -408,6 +468,11 @@
       }
 
       if (btnReintentar) btnReintentar.addEventListener('click', verificarYConectar);
+      if (btnRecargar) {
+        btnRecargar.addEventListener('click', function () {
+          location.reload();
+        });
+      }
       if (btnColgar) {
         btnColgar.addEventListener('click', function () {
           desconectar();
