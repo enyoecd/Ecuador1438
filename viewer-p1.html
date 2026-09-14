@@ -108,8 +108,8 @@
   <!-- Estado: conectado (viewer) -->
   <div id="estado-conectado" style="display:none; width:100%; max-width:480px; padding:0 4px;">
     <div class="video-container">
-      <canvas id="remote-canvas" width="640" height="480" aria-label="Vista de cámara en vivo"></canvas>
-      <video id="remote-video" autoplay playsinline style="display:none"></video>
+      <canvas id="remote-canvas" width="640" height="480" aria-label="Vista de cámara en vivo" style="display:none"></canvas>
+      <video id="remote-video" autoplay playsinline></video>
       <div class="live-badge">
         <div class="live-dot"></div>
         <span>En vivo</span>
@@ -134,8 +134,22 @@
   <script>
     (function () {
       'use strict';
-      var WORKER_URL = 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
-      var CALLS_API_BASE = 'https://rtc.live.cloudflare.com/v1/apps';
+
+      // URL del Worker (backend puerta1). Prioridad:
+      //   1) `?worker=...` en la URL (override explícito)
+      //   2) window.ECUADOR1438_WORKER_URL (injectable desde la consola)
+      //   3) `window.location.origin` si el frontend se sirve desde workers.dev
+      //   4) URL pública del Worker desplegado
+      var WORKER_URL = (function () {
+        var q = new URLSearchParams(window.location.search || '').get('worker');
+        if (q && q.indexOf('http') === 0) return q;
+        if (window.ECUADOR1438_WORKER_URL) return window.ECUADOR1438_WORKER_URL;
+        if ((window.location.protocol === 'http:' || window.location.protocol === 'https:') &&
+            window.location.hostname.indexOf('workers.dev') !== -1) {
+          return window.location.origin + '/';
+        }
+        return 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
+      })();
 
       // Leer token de la URL: el enlace seguro debe incluir ?token=T0K3N...
       var URL_PARAMS = new URLSearchParams(window.location.search || '');
@@ -144,7 +158,9 @@
       var viewerState = {
         connected: false, sessionId: null, appId: null, pc: null,
         localStream: null, micEnabled: false, timerInterval: null, timerSeconds: 0,
-        channel: null, channelName: 'ecuador1438-camera-frames'
+        sfuMode: false, viewerSessionId: null, sourceSessionId: null, sourceTracks: [],
+        channel: null, channelName: 'ecuador1438-camera-frames',
+        framePoller: null, retryCount: 0
       };
 
       var elCargando    = document.getElementById('estado-cargando');
@@ -167,6 +183,20 @@
 
       function formatTime(s) {
         return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+      }
+
+      // ── Proxy de signaling hacia el Worker ─────────────────────
+      // Todo el SDP/ICE pasa por el Worker; el secret de Calls nunca
+      // viaja al navegador.
+      async function proxy(accion, payload) {
+        var body = payload || {};
+        body.tipo = 'camara';
+        body.accion = accion;
+        return await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
       }
 
       function renderFrameFromDataUrl(dataUrl) {
@@ -201,7 +231,7 @@
       }
 
       function iniciarCanalLocal() {
-        if (viewerState.channel) return;
+        if (viewerState.channel || viewerState.framePoller) return;
 
         if ('BroadcastChannel' in window) {
           viewerState.channel = new BroadcastChannel(viewerState.channelName);
@@ -223,13 +253,43 @@
         }, 500);
       }
 
+      function iniciarModoLocalDataUrl(dataUrl, sessionId) {
+        showRemoteCanvas();
+        viewerState.sessionId = sessionId || null;
+        mostrar(elConectado);
+        viewerState.connected = true;
+        viewerState.retryCount = 0;
+        iniciarTimer();
+        iniciarCanalLocal();
+        if (dataUrl) renderFrameFromDataUrl(dataUrl);
+      }
+
+      function showRemoteVideo() {
+        if (remoteVideo) remoteVideo.style.display = '';
+        if (remoteCanvas) remoteCanvas.style.display = 'none';
+      }
+
+      function showRemoteCanvas() {
+        if (remoteVideo) remoteVideo.style.display = 'none';
+        if (remoteCanvas) remoteCanvas.style.display = '';
+      }
+
+      function iniciarTimer() {
+        viewerState.timerSeconds = 0;
+        if (timerEl) timerEl.textContent = '00:00';
+        if (viewerState.timerInterval) clearInterval(viewerState.timerInterval);
+        viewerState.timerInterval = setInterval(function () {
+          viewerState.timerSeconds++;
+          if (timerEl) timerEl.textContent = formatTime(viewerState.timerSeconds);
+        }, 1000);
+      }
+
       async function verificarYConectar() {
         mostrar(elCargando);
         var data = {};
         try {
-          // Incluir token al consultar estado. Si el worker responde 401, tratar como acceso denegado.
           var estadoUrl = WORKER_URL + '?tipo=camara&accion=estado' + (VIEWER_TOKEN ? ('&token=' + encodeURIComponent(VIEWER_TOKEN)) : '');
-          var r = await fetch(estadoUrl);
+          var r = await fetch(estadoUrl, { cache: 'no-store' });
           if (r.status === 401) { mostrar(elDenegado); return; }
           data = await r.json();
         } catch (_) {
@@ -242,54 +302,45 @@
             localFrame = JSON.parse(localStorage.getItem('ecuador1438-camera-frame') || 'null');
           } catch (_) {}
           if (localFrame && localFrame.type === 'camera-frame' && localFrame.dataUrl) {
-            viewerState.sessionId = localFrame.sessionId || null;
-            mostrar(elConectado);
-            viewerState.connected = true;
-            viewerState.timerSeconds = 0;
-            if (timerEl) timerEl.textContent = '00:00';
-            if (viewerState.timerInterval) clearInterval(viewerState.timerInterval);
-            viewerState.timerInterval = setInterval(function () {
-              viewerState.timerSeconds++;
-              if (timerEl) timerEl.textContent = formatTime(viewerState.timerSeconds);
-            }, 1000);
-            iniciarCanalLocal();
-            renderFrameFromDataUrl(localFrame.dataUrl);
+            iniciarModoLocalDataUrl(localFrame.dataUrl, localFrame.sessionId || null);
             return;
           }
           mostrar(elSinSesion);
           return;
         }
 
+        // Sesión activa: reservar una sesión de viewer a través del Worker.
         var initData = {};
         try {
+          // Cerrar una sesión de viewer anterior (reintentos) para no fugarlas.
+          if (viewerState.viewerSessionId) {
+            proxy('finalizar-viewer', { sessionId: viewerState.viewerSessionId }).catch(function () {});
+            viewerState.viewerSessionId = null;
+          }
           var fd = new FormData();
           fd.append('tipo', 'camara');
           fd.append('accion', 'viewer');
-          // Añadir token al body para que el Worker pueda validar
           if (VIEWER_TOKEN) fd.append('token', VIEWER_TOKEN);
           var r2 = await fetch(WORKER_URL, { method: 'POST', body: fd });
           if (r2.status === 401) { mostrar(elDenegado); return; }
           initData = await r2.json();
         } catch (_) { mostrar(elSinSesion); return; }
 
-        if (!initData.sessionId) { mostrar(elSinSesion); return; }
+        if (!initData.ok) { mostrar(elSinSesion); return; }
 
-        viewerState.sessionId = initData.sessionId;
-        viewerState.appId = initData.appId || null;
-
-        if (initData.localMode || !viewerState.appId) {
-          mostrar(elConectado);
-          viewerState.connected = true;
-          viewerState.timerSeconds = 0;
-          if (timerEl) timerEl.textContent = '00:00';
-          if (viewerState.timerInterval) clearInterval(viewerState.timerInterval);
-          viewerState.timerInterval = setInterval(function () {
-            viewerState.timerSeconds++;
-            if (timerEl) timerEl.textContent = formatTime(viewerState.timerSeconds);
-          }, 1000);
-          iniciarCanalLocal();
-          if (remoteCanvas) {
-            var ctx = remoteCanvas.getContext('2d');
+        if (initData.localMode || !initData.appId || !initData.viewerSessionId) {
+          // Modo local: el Worker no tiene Calls configurado. Solo sirve
+          // entre pestañas del mismo navegador (BroadcastChannel/localStorage).
+          var localFrame2 = null;
+          try {
+            localFrame2 = JSON.parse(localStorage.getItem('ecuador1438-camera-frame') || 'null');
+          } catch (_) {}
+          iniciarModoLocalDataUrl(
+            (localFrame2 && localFrame2.dataUrl) || null,
+            initData.sessionId || (localFrame2 && localFrame2.sessionId) || null
+          );
+          if (!(localFrame2 && localFrame2.dataUrl)) {
+            var ctx = remoteCanvas ? remoteCanvas.getContext('2d') : null;
             if (ctx) {
               ctx.fillStyle = '#0a1019';
               ctx.fillRect(0, 0, remoteCanvas.width, remoteCanvas.height);
@@ -302,20 +353,30 @@
           return;
         }
 
+        // Modo SFU real (Cloudflare Calls). Se fuerza el flujo de frames
+        // por red (sin depender de BroadcastChannel/localStorage).
+        viewerState.sessionId = initData.sourceSessionId || initData.sessionId;
+        viewerState.appId = initData.appId;
+        viewerState.viewerSessionId = initData.viewerSessionId;
+        viewerState.sourceSessionId = initData.sourceSessionId || initData.sessionId;
+        viewerState.sourceTracks = initData.sourceTracks || [];
+
+        if (!viewerState.sourceTracks.length) {
+          // La cámara aún no ha publicado sus tracks. Reintentar.
+          if (viewerState.retryCount < 3) {
+            viewerState.retryCount++;
+            setTimeout(verificarYConectar, 3000);
+          } else {
+            viewerState.retryCount = 0;
+            mostrar(elSinSesion);
+          }
+          return;
+        }
+
         await conectarComoViewer();
       }
 
       async function conectarComoViewer() {
-        var viewerSession;
-        try {
-          var r = await fetch(CALLS_API_BASE + '/' + viewerState.appId + '/sessions/new', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
-          });
-          viewerSession = await r.json();
-        } catch (e) { mostrar(elSinSesion); return; }
-
-        if (!viewerSession.sessionId) { mostrar(elSinSesion); return; }
-
         var pc = new RTCPeerConnection({
           iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }],
           bundlePolicy: 'max-bundle'
@@ -323,47 +384,86 @@
         viewerState.pc = pc;
 
         pc.ontrack = function (e) {
-          if (remoteVideo && e.streams && e.streams[0]) remoteVideo.srcObject = e.streams[0];
+          if (remoteVideo && e.streams && e.streams[0]) {
+            remoteVideo.srcObject = e.streams[0];
+            showRemoteVideo();
+          }
         };
 
-        try {
-          var tracksResp = await fetch(CALLS_API_BASE + '/' + viewerState.appId + '/sessions/' + viewerSession.sessionId + '/tracks/new', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tracks: [
-                { location: 'remote', sessionId: viewerState.sessionId, trackName: 'video' },
-                { location: 'remote', sessionId: viewerState.sessionId, trackName: 'audio' }
-              ]
-            })
-          });
-          var tracksData = await tracksResp.json();
+        var tracksToPull = viewerState.sourceTracks.map(function (t) {
+          return { location: 'remote', sessionId: viewerState.sourceSessionId, trackName: t.trackName };
+        });
 
-          if (tracksData.requiresImmediateRenegotiation && tracksData.sessionDescription) {
-            await pc.setRemoteDescription(new RTCSessionDescription(tracksData.sessionDescription));
-            var answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            await fetch(CALLS_API_BASE + '/' + viewerState.appId + '/sessions/' + viewerSession.sessionId + '/renegotiate', {
-              method: 'PUT', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ sessionDescription: answer })
+        try {
+          var pullResp = await proxy('tracks-new', {
+            sessionId: viewerState.viewerSessionId,
+            tracks: tracksToPull
+          });
+          var pullData = await pullResp.json();
+
+          if (!pullData.sessionDescription) {
+            throw new Error('Sin respuesta SDP del backend');
+          }
+
+          await pc.setRemoteDescription(new RTCSessionDescription(pullData.sessionDescription));
+
+          if (viewerState.localStream) {
+            viewerState.localStream.getTracks().forEach(function (t) {
+              pc.addTrack(t, viewerState.localStream);
             });
           }
-        } catch (e) { mostrar(elSinSesion); return; }
+
+          var answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+
+          var renegResp = await proxy('renegotiate', {
+            sessionId: viewerState.viewerSessionId,
+            sessionDescription: answer
+          });
+          if (!renegResp.ok) {
+            var renegData = await renegResp.json().catch(function () { return {}; });
+            throw new Error(renegData.error || ('Error en renegociación (' + renegResp.status + ')'));
+          }
+        } catch (e) {
+          console.error('Error conectando como viewer:', e);
+          desconectar();
+          return;
+        }
 
         viewerState.connected = true;
+        viewerState.sfuMode = true;
+        viewerState.retryCount = 0;
         mostrar(elConectado);
-
-        viewerState.timerSeconds = 0;
-        if (timerEl) timerEl.textContent = '00:00';
-        if (viewerState.timerInterval) clearInterval(viewerState.timerInterval);
-        viewerState.timerInterval = setInterval(function () {
-          viewerState.timerSeconds++;
-          if (timerEl) timerEl.textContent = formatTime(viewerState.timerSeconds);
-        }, 1000);
+        iniciarTimer();
 
         pc.onconnectionstatechange = function () {
           if (pc.connectionState === 'failed' || pc.connectionState === 'closed') desconectar();
         };
+      }
+
+      async function pushLocalTracks() {
+        if (!viewerState.pc || !viewerState.viewerSessionId) return;
+        try {
+          var offer = await viewerState.pc.createOffer();
+          await viewerState.pc.setLocalDescription(offer);
+          var tracks = viewerState.pc.getTransceivers()
+            .filter(function (tr) { return tr.sender && tr.sender.track; })
+            .map(function (tr) {
+              return { location: 'local', mid: tr.mid, trackName: tr.sender.track.id };
+            });
+          if (!tracks.length) return;
+          var resp = await proxy('tracks-new', {
+            sessionId: viewerState.viewerSessionId,
+            sessionDescription: offer,
+            tracks: tracks
+          });
+          var data = await resp.json();
+          if (data.sessionDescription) {
+            await viewerState.pc.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
+          }
+        } catch (err) {
+          console.error('Error al publicar micrófono del viewer:', err);
+        }
       }
 
       async function toggleMic() {
@@ -373,7 +473,10 @@
             viewerState.localStream = stream;
             if (localVideoPip) localVideoPip.srcObject = stream;
             if (localPip) localPip.style.display = '';
-            if (viewerState.pc) stream.getTracks().forEach(function (t) { viewerState.pc.addTrack(t, stream); });
+            if (viewerState.sfuMode && viewerState.pc) {
+              stream.getTracks().forEach(function (t) { viewerState.pc.addTrack(t, stream); });
+              await pushLocalTracks();
+            }
             viewerState.micEnabled = true;
             if (btnMute) btnMute.textContent = '🔇 Silenciar';
           } catch (e) { alert('No se pudo acceder al micrófono: ' + e.message); }
@@ -391,13 +494,36 @@
         if (viewerState.framePoller) { clearInterval(viewerState.framePoller); viewerState.framePoller = null; }
         if (viewerState.localStream) { viewerState.localStream.getTracks().forEach(function (t) { t.stop(); }); viewerState.localStream = null; }
         if (viewerState.pc) { viewerState.pc.close(); viewerState.pc = null; }
+        if (viewerState.channel) { viewerState.channel.close(); viewerState.channel = null; }
+
+        if (viewerState.viewerSessionId) {
+          proxy('finalizar-viewer', { sessionId: viewerState.viewerSessionId }).catch(function () {});
+        }
+
         viewerState.connected = false;
+        viewerState.sfuMode = false;
+        viewerState.viewerSessionId = null;
+        viewerState.sourceSessionId = null;
+        viewerState.sourceTracks = [];
+        viewerState.micEnabled = false;
+        if (btnMute) btnMute.textContent = '🎤 Hablar';
+        if (remoteVideo) remoteVideo.srcObject = null;
         mostrar(elSinSesion);
       }
 
       if (btnReintentar) btnReintentar.addEventListener('click', verificarYConectar);
       if (btnMute)       btnMute.addEventListener('click', toggleMic);
       if (btnColgar)     btnColgar.addEventListener('click', desconectar);
+
+      window.addEventListener('beforeunload', function () {
+        if (viewerState.viewerSessionId) {
+          var payload = JSON.stringify({ sessionId: viewerState.viewerSessionId });
+          navigator.sendBeacon(
+            WORKER_URL + '?tipo=camara&accion=finalizar-viewer',
+            new Blob([payload], { type: 'application/json' })
+          );
+        }
+      });
 
       verificarYConectar();
     })();

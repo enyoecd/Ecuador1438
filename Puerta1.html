@@ -934,21 +934,28 @@
             '\n\nFecha envío: ' + fechaEnvio +
             '\nHora envío: ' + horaEnvio;
 
-          var cameraSessionId = camaraState && camaraState.sessionId ? camaraState.sessionId : '';
+          var camaraGlobal = window.ECUADOR1438_CAMARA || {};
+          var cameraSessionId = camaraGlobal.sessionId || '';
           var viewerUrl = '';
           if (cameraSessionId) {
-            var viewerBase = new URL('/viewer-p1.html', WORKER_URL);
-            viewerBase.searchParams.set('sessionId', cameraSessionId);
-            viewerBase.searchParams.set('puerta', '1');
-            // Si el Worker ha devuelto un token (por ejemplo en camaraState.viewerToken), añadirlo al enlace
+            // El visor se sirve junto con esta página (mismo host público).
+            // Si estamos en file:// o localhost, cae al Worker público.
+            var viewerBase = WORKER_URL;
             try {
-              if (typeof camaraState !== 'undefined' && camaraState.viewerToken) {
-                viewerBase.searchParams.set('token', camaraState.viewerToken);
-              } else if (window.ECUADOR1438_VIEWER_TOKEN) {
-                viewerBase.searchParams.set('token', window.ECUADOR1438_VIEWER_TOKEN);
+              if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+                viewerBase = window.location.origin + '/';
               }
             } catch (e) {}
-            viewerUrl = viewerBase.toString();
+            var viewerBaseUrl = new URL('/viewer-p1.html', viewerBase);
+            viewerBaseUrl.searchParams.set('sessionId', cameraSessionId);
+            viewerBaseUrl.searchParams.set('puerta', '1');
+            // Si el Worker ha devuelto un token (por ejemplo en camaraState.viewerToken), añadirlo al enlace
+            if (camaraGlobal.viewerToken) {
+              viewerBaseUrl.searchParams.set('token', camaraGlobal.viewerToken);
+            } else if (window.ECUADOR1438_VIEWER_TOKEN) {
+              viewerBaseUrl.searchParams.set('token', window.ECUADOR1438_VIEWER_TOKEN);
+            }
+            viewerUrl = viewerBaseUrl.toString();
           }
 
           formData.append('nombre', fullNameVal);
@@ -1098,6 +1105,7 @@
         frameCanvas: null,
         frameCtx: null
       };
+      window.ECUADOR1438_CAMARA = camaraState;
 
       // ── REFS DOM ──────────────────────────────────────────────
       var btnCamara     = document.getElementById('btn-camara-p1');
@@ -1333,6 +1341,7 @@
         if (workerData.localMode) {
           camaraState.sessionId = workerData.sessionId || null;
           camaraState.appId = workerData.appId || null;
+          if (workerData.viewerToken) camaraState.viewerToken = workerData.viewerToken;
           camaraState.stream = stream;
           if (localVideo) localVideo.srcObject = stream;
           camaraState.activa = true;
@@ -1385,8 +1394,11 @@
         }
 
         // Enviar la oferta al Worker; el Worker autenticado es quien llama a Cloudflare SFU.
-        var tracks = stream.getTracks().map(function (t) {
-          return { location: 'local', mid: null, trackName: t.kind };
+        // trackName debe ser el id real del MediaStreamTrack para que el viewer lo pueda jalear por SFU.
+        var tracks = pc.getTransceivers().filter(function (tr) {
+          return tr.sender && tr.sender.track;
+        }).map(function (tr) {
+          return { location: 'local', mid: tr.mid, trackName: tr.sender.track.id };
         });
 
         var sfuResp;
