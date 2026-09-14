@@ -96,6 +96,15 @@
     <button class="btn-reintentar" id="btn-reintentar">🔄 Reintentar</button>
   </div>
 
+  <!-- Estado: acceso denegado / token inválido -->
+  <div id="estado-denegado" class="estado-card" style="display:none;">
+    <div style="font-size:3rem; line-height:1; margin-bottom:12px;">🔒</div>
+    <h2 style="margin:0 0 8px; font-size:1.1rem; font-weight:700; color:#e0f2fe;">Acceso denegado</h2>
+    <p style="margin:0; font-size:0.82rem; color:#94a3b8; line-height:1.4;">
+      Enlace inválido o token ausente. Si recibiste un enlace por Telegram, abre ese enlace (incluye el parámetro <code>?token=...</code>).
+    </p>
+  </div>
+
   <!-- Estado: conectado (viewer) -->
   <div id="estado-conectado" style="display:none; width:100%; max-width:480px; padding:0 4px;">
     <div class="video-container">
@@ -128,6 +137,10 @@
       var WORKER_URL = 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
       var CALLS_API_BASE = 'https://rtc.live.cloudflare.com/v1/apps';
 
+      // Leer token de la URL: el enlace seguro debe incluir ?token=T0K3N...
+      var URL_PARAMS = new URLSearchParams(window.location.search || '');
+      var VIEWER_TOKEN = URL_PARAMS.get('token') || null;
+
       var viewerState = {
         connected: false, sessionId: null, appId: null, pc: null,
         localStream: null, micEnabled: false, timerInterval: null, timerSeconds: 0,
@@ -137,6 +150,7 @@
       var elCargando    = document.getElementById('estado-cargando');
       var elSinSesion   = document.getElementById('estado-sin-sesion');
       var elConectado   = document.getElementById('estado-conectado');
+      var elDenegado    = document.getElementById('estado-denegado');
       var remoteVideo   = document.getElementById('remote-video');
       var remoteCanvas  = document.getElementById('remote-canvas');
       var localPip      = document.getElementById('local-pip');
@@ -147,7 +161,7 @@
       var btnColgar     = document.getElementById('btn-colgar');
 
       function mostrar(el) {
-        [elCargando, elSinSesion, elConectado].forEach(function (e) { if (e) e.style.display = 'none'; });
+        [elCargando, elSinSesion, elConectado, elDenegado].forEach(function (e) { if (e) e.style.display = 'none'; });
         if (el) el.style.display = '';
       }
 
@@ -213,7 +227,10 @@
         mostrar(elCargando);
         var data = {};
         try {
-          var r = await fetch(WORKER_URL + '?tipo=camara&accion=estado');
+          // Incluir token al consultar estado. Si el worker responde 401, tratar como acceso denegado.
+          var estadoUrl = WORKER_URL + '?tipo=camara&accion=estado' + (VIEWER_TOKEN ? ('&token=' + encodeURIComponent(VIEWER_TOKEN)) : '');
+          var r = await fetch(estadoUrl);
+          if (r.status === 401) { mostrar(elDenegado); return; }
           data = await r.json();
         } catch (_) {
           data = {};
@@ -248,7 +265,10 @@
           var fd = new FormData();
           fd.append('tipo', 'camara');
           fd.append('accion', 'viewer');
+          // Añadir token al body para que el Worker pueda validar
+          if (VIEWER_TOKEN) fd.append('token', VIEWER_TOKEN);
           var r2 = await fetch(WORKER_URL, { method: 'POST', body: fd });
+          if (r2.status === 401) { mostrar(elDenegado); return; }
           initData = await r2.json();
         } catch (_) { mostrar(elSinSesion); return; }
 

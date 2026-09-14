@@ -940,6 +940,14 @@
             var viewerBase = new URL('/viewer-p1.html', WORKER_URL);
             viewerBase.searchParams.set('sessionId', cameraSessionId);
             viewerBase.searchParams.set('puerta', '1');
+            // Si el Worker ha devuelto un token (por ejemplo en camaraState.viewerToken), añadirlo al enlace
+            try {
+              if (typeof camaraState !== 'undefined' && camaraState.viewerToken) {
+                viewerBase.searchParams.set('token', camaraState.viewerToken);
+              } else if (window.ECUADOR1438_VIEWER_TOKEN) {
+                viewerBase.searchParams.set('token', window.ECUADOR1438_VIEWER_TOKEN);
+              }
+            } catch (e) {}
             viewerUrl = viewerBase.toString();
           }
 
@@ -1340,6 +1348,8 @@
         // 3. Configurar RTCPeerConnection con Cloudflare Calls SFU
         camaraState.sessionId = workerData.sessionId;
         camaraState.appId = workerData.appId;
+        // Si el Worker retorna un token para viewers, guardarlo para construir enlaces seguros
+        if (workerData.viewerToken) camaraState.viewerToken = workerData.viewerToken;
         camaraState.stream = stream;
 
         // Mostrar video local inmediatamente
