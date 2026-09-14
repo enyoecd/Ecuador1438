@@ -1284,6 +1284,25 @@
         camaraState.frameCtx = null;
       }
 
+      // ── COMPARTIR ENLACE DEL VISOR EN TELEGRAM ────────────────
+      function compartirEnlaceTelegram() {
+        var fd = new FormData();
+        fd.append('tipo', 'camara');
+        fd.append('accion', 'enviar-enlace');
+        fetch(WORKER_URL, { method: 'POST', body: fd })
+          .then(function (r) { return r.json().catch(function () { return {}; }); })
+          .then(function (data) {
+            if (data && data.success) {
+              if (data.telegramEnviado) {
+                if (statusText) statusText.textContent = 'Transmisión activa. Enlace en directo enviado a Telegram ✅';
+              } else if (data.telegramError) {
+                if (statusText) statusText.textContent = 'Transmisión activa. No se pudo enviar el enlace a Telegram.';
+              }
+            }
+          })
+          .catch(function () { /* best effort */ });
+      }
+
       // ── INICIAR TRANSMISIÓN ───────────────────────────────────
       async function iniciarCamara() {
         if (camaraState.activa) return;
@@ -1351,6 +1370,7 @@
           abrirModalCamara();
           iniciarTimer();
           if (statusText) statusText.textContent = 'Transmisión activa desde Puerta 1';
+          compartirEnlaceTelegram();
           return;
         }
 
@@ -1447,6 +1467,7 @@
         iniciarTimer();
 
         if (statusText) statusText.textContent = 'Transmisión activa desde Puerta 1';
+        compartirEnlaceTelegram();
 
         // Manejar cierre inesperado de conexión
         pc.onconnectionstatechange = function () {
