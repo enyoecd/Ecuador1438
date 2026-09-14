@@ -359,11 +359,13 @@
         viewerState.appId = initData.appId;
         viewerState.viewerSessionId = initData.viewerSessionId;
         viewerState.sourceSessionId = initData.sourceSessionId || initData.sessionId;
-        viewerState.sourceTracks = initData.sourceTracks || [];
+        viewerState.sourceTracks = (initData.sourceTracks || []).filter(function (t) {
+          return t && t.trackName;
+        });
 
         if (!viewerState.sourceTracks.length) {
           // La cámara aún no ha publicado sus tracks. Reintentar.
-          if (viewerState.retryCount < 3) {
+          if (viewerState.retryCount < 10) {
             viewerState.retryCount++;
             setTimeout(verificarYConectar, 3000);
           } else {

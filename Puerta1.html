@@ -791,6 +791,7 @@
   <script>
     (function () {
     window.ECUADOR1438_WORKER_URL = window.ECUADOR1438_WORKER_URL || 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
+    window.ECUADOR1438_VIEWER_BASE = window.ECUADOR1438_VIEWER_BASE || window.ECUADOR1438_WORKER_URL;
     var WORKER_URL = window.ECUADOR1438_WORKER_URL;
 
     function formatDate(d) {
@@ -940,9 +941,10 @@
           if (cameraSessionId) {
             // El visor se sirve junto con esta página (mismo host público).
             // Si estamos en file:// o localhost, cae al Worker público.
-            var viewerBase = WORKER_URL;
+            // Si el visor vive en otro dominio, define window.ECUADOR1438_VIEWER_BASE.
+            var viewerBase = window.ECUADOR1438_VIEWER_BASE || WORKER_URL;
             try {
-              if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+              if (!window.ECUADOR1438_VIEWER_BASE && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
                 viewerBase = window.location.origin + '/';
               }
             } catch (e) {}
