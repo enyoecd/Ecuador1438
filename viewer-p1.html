@@ -197,17 +197,9 @@
     (function () {
       'use strict';
 
-      // Resolver dinámicamente la URL del backend (permite inyectar en build/env o usar la URL pública)
-      // - Si la app inyecta window.__WORKER_URL__ se usa esa. Si el worker está en el mismo
-      //   origen, puede usarse una ruta relativa. Por defecto, caerá en la URL pública.
+      // Endpoint público del Worker independiente de Puerta 1.
       (function () {
         function detectWorkerUrl() {
-          try {
-            if (window.__WORKER_URL__) return window.__WORKER_URL__;
-          } catch (e) {}
-          // Si el worker se ha proxyado al mismo origen, usar ruta relativa
-          // (ej. cuando se despliega bajo el mismo host del frontend).
-          // Dejar aquí la URL pública conocida como fallback.
           return 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
         }
         window.WORKER_URL = detectWorkerUrl();
@@ -310,6 +302,7 @@
           state.viewerSessionId = null;
           fetch(WORKER_URL, {
             method: 'POST',
+            credentials: 'omit',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tipo: 'camara', accion: 'finalizar-viewer', sessionId: sid })
           }).catch(function () {});
@@ -324,7 +317,7 @@
 
         var data = {};
         try {
-          var r = await fetch(WORKER_URL + '?tipo=camara&accion=estado', { cache: 'no-store' });
+          var r = await fetch(WORKER_URL + '?tipo=camara&accion=estado', { cache: 'no-store', credentials: 'omit' });
           data = await r.json();
         } catch (_) { mostrar(elSinSesion); return; }
 
@@ -346,6 +339,7 @@
         try {
           var r2 = await fetch(WORKER_URL, {
             method: 'POST',
+            credentials: 'omit',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               tipo: 'camara',
@@ -434,6 +428,7 @@
         try {
           var r = await fetch(WORKER_URL, {
             method: 'POST',
+            credentials: 'omit',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               tipo: 'camara',
@@ -458,6 +453,7 @@
         try {
           var r2 = await fetch(WORKER_URL, {
             method: 'POST',
+            credentials: 'omit',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               tipo: 'camara',

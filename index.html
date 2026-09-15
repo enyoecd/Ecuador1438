@@ -140,6 +140,7 @@
       async function triggerTimbre(doorNumber, btn) {
         window.TimbreManager.triggerDoorbell(doorNumber, function (result) {
           if (!result.allowed) {
+            if (result.error) window.alert(result.error);
             refreshButtons();
             return;
           }

@@ -557,6 +557,7 @@
         btnTimbre.addEventListener('click', function () {
           window.TimbreManager.triggerDoorbell('2', function (result) {
             if (!result.allowed) {
+              if (result.error) window.alert(result.error);
               refreshButton();
               return;
             }
@@ -630,16 +631,20 @@
 
           try {
             var response = await window.TimbreManager.sendForm(formData, '2');
-            if (response.ok) {
+            var responseData = await response.json().catch(function () { return {}; });
+            if (response.ok && responseData.success !== false && responseData.ok !== false) {
               showMessageSentNotification();
               contactForm.reset();
               var photosPreview = document.getElementById('photos-preview');
               if (photosPreview) photosPreview.innerHTML = '';
             } else {
-              console.error('Hubo un problema al enviar el mensaje');
+              var message = responseData.error || responseData.mensaje || 'No se pudo enviar el mensaje. Intenta nuevamente.';
+              console.error(message);
+              window.alert(message);
             }
           } catch (err) {
             console.error('Error al enviar el formulario:', err);
+            window.alert('No fue posible conectar con el servidor. Intenta nuevamente.');
           } finally {
             if (submitBtn) {
               submitBtn.disabled = false;

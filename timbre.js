@@ -189,32 +189,8 @@
   }
 
   async function triggerDoorbell(door, onResponse) {
-    var state = getState(door);
-    var now = Date.now();
-
-    // Si ya está bloqueado, NO enviar ningún mensaje y mostrar el aviso visual
-    if (state.lockUntil && now < state.lockUntil) {
-      showLimitModal(door, state.lockUntil);
-      if (typeof onResponse === 'function') {
-        onResponse({ allowed: false, isBlocked: true, lockUntil: state.lockUntil, remainingMin: getRemainingMinutes(state.lockUntil) });
-      }
-      return { allowed: false, isBlocked: true, lockUntil: state.lockUntil, remainingMin: getRemainingMinutes(state.lockUntil) };
-    }
-
-    if (state.lockUntil && now >= state.lockUntil) {
-      state.count = 0;
-      state.lockUntil = null;
-    }
-
-    // Incrementar contador local
-    state.count = (state.count || 0) + 1;
-    var isThirdLocal = state.count >= 3;
-    if (isThirdLocal) {
-      state.lockUntil = now + LOCK_DURATION_MS;
-    }
-    saveState(door, state);
-
-    // Enviar solicitud POST al backend específico de la puerta
+    // El Worker es la fuente de verdad para el límite. El navegador sólo
+    // guarda el tiempo que el servidor devuelve para mostrar el aviso.
     var backendUrl = getBackendUrl(door);
     var formData = new FormData();
     formData.append('tipo', 'timbre');
@@ -223,6 +199,7 @@
     try {
       var response = await fetch(backendUrl, {
         method: 'POST',
+        credentials: 'omit',
         body: formData
       });
 
@@ -231,9 +208,10 @@
         data = await response.json();
       } catch (e) {}
 
-      if (response.status === 429 || data.bloqueado) {
-        var min = data.minutos_restantes || getRemainingMinutes(state.lockUntil) || 30;
+      if (response.status === 429 || (!response.ok && data.bloqueado)) {
+        var min = data.minutos_restantes || 30;
         applyLock(door, min);
+        var state = getState(door);
         showLimitModal(door, state.lockUntil || (Date.now() + min * 60 * 1000));
         if (typeof onResponse === 'function') {
           onResponse({ allowed: false, isBlocked: true, remainingMin: min });
@@ -242,23 +220,29 @@
       }
 
       if (response.ok && (data.success || data.ok)) {
-        var isThird = isThirdLocal || (data.bloqueado_proximamente === true);
+        var isThird = data.bloqueado === true || data.bloqueado_proximamente === true;
+        if (isThird) {
+          // Sólo refleja el bloqueo que acaba de confirmar el Worker; no
+          // sustituye la validación remota de futuros intentos.
+          applyLock(door, data.minutos_restantes || 30);
+        }
         if (typeof onResponse === 'function') {
           onResponse({ allowed: true, isThird: isThird });
         }
         return { allowed: true, isThird: isThird };
       } else {
+        var errorMessage = data.error || data.mensaje || 'No se pudo enviar el timbre. Intenta nuevamente.';
         if (typeof onResponse === 'function') {
-          onResponse({ allowed: true, isThird: isThirdLocal });
+          onResponse({ allowed: false, error: errorMessage });
         }
-        return { allowed: true, isThird: isThirdLocal };
+        return { allowed: false, error: errorMessage };
       }
     } catch (error) {
       console.error('Error enviando notificación de timbre:', error);
       if (typeof onResponse === 'function') {
-        onResponse({ allowed: true, isThird: isThirdLocal });
+        onResponse({ allowed: false, error: 'No fue posible conectar con el servidor. Intenta nuevamente.' });
       }
-      return { allowed: true, isThird: isThirdLocal };
+      return { allowed: false, error: 'No fue posible conectar con el servidor. Intenta nuevamente.' };
     }
   }
 
@@ -268,6 +252,7 @@
     var backendUrl = getBackendUrl(doorValue);
     return await fetch(backendUrl, {
       method: 'POST',
+      credentials: 'omit',
       body: formData
     });
   }

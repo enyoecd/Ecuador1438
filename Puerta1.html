@@ -869,6 +869,7 @@
         btnTimbre.addEventListener('click', function () {
           window.TimbreManager.triggerDoorbell('1', function (result) {
             if (!result.allowed) {
+              if (result.error) window.alert(result.error);
               refreshButton();
               return;
             }
@@ -958,16 +959,20 @@
 
           try {
             var response = await window.TimbreManager.sendForm(formData, '1');
-            if (response.ok) {
+            var responseData = await response.json().catch(function () { return {}; });
+            if (response.ok && responseData.success !== false && responseData.ok !== false) {
               showMessageSentNotification();
               contactForm.reset();
               var photosPreview = document.getElementById('photos-preview');
               if (photosPreview) photosPreview.innerHTML = '';
             } else {
-              console.error('Hubo un problema al enviar el mensaje');
+              var message = responseData.error || responseData.mensaje || 'No se pudo enviar el mensaje. Intenta nuevamente.';
+              console.error(message);
+              window.alert(message);
             }
           } catch (err) {
             console.error('Error al enviar el formulario:', err);
+            window.alert('No fue posible conectar con el servidor. Intenta nuevamente.');
           } finally {
             if (submitBtn) {
               submitBtn.disabled = false;
@@ -1071,12 +1076,9 @@
     (function () {
       'use strict';
 
-      // Resolver dinámicamente la URL del backend (permite inyectar en build/env o usar la URL pública)
+      // Endpoint público del Worker independiente de Puerta 1.
       (function () {
         function detectWorkerUrl() {
-          try {
-            if (window.__WORKER_URL__) return window.__WORKER_URL__;
-          } catch (e) {}
           return 'https://puerta1-ecuador1438.enyoecd.workers.dev/';
         }
         window.WORKER_URL = detectWorkerUrl();
@@ -1156,7 +1158,7 @@
       function verificarEstado() {
         if (camaraState.activa) return;
         if (camaraState.bloqueada) return;
-        fetch(WORKER_URL + '?tipo=camara&accion=estado', { cache: 'no-store' })
+        fetch(WORKER_URL + '?tipo=camara&accion=estado', { cache: 'no-store', credentials: 'omit' })
           .then(function (r) { return r.json().catch(function () { return {}; }); })
           .then(function (d) {
             if (!camaraState.bloqueada && !camaraState.activa) {
@@ -1286,6 +1288,7 @@
           if (!camaraState.activa || !camaraState.sessionId) return;
           fetch(WORKER_URL, {
             method: 'POST',
+            credentials: 'omit',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               tipo: 'camara',
@@ -1356,8 +1359,8 @@
         setModo('cargando');
 
         var stream;
-        // La API getUserMedia requiere un contexto seguro (HTTPS) — salvo localhost
-        if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        // getUserMedia sólo está disponible en un contexto seguro, como Pages.
+        if (!window.isSecureContext) {
           limpiarSesionLocal();
           setModo('idle');
           alert('La transmisión de la cámara requiere HTTPS. Accede a la página usando https:// o configura un proxy seguro (ej. Cloudflare, GitHub Pages con HTTPS).');
@@ -1421,6 +1424,7 @@
         try {
           var workerResp = await fetch(WORKER_URL, {
             method: 'POST',
+            credentials: 'omit',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               tipo: 'camara',
@@ -1479,6 +1483,7 @@
 
           var sfuResp = await fetch(WORKER_URL, {
             method: 'POST',
+            credentials: 'omit',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               tipo: 'camara',
@@ -1562,6 +1567,7 @@
         if (sessionId) {
           fetch(WORKER_URL, {
             method: 'POST',
+            credentials: 'omit',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tipo: 'camara', accion: 'finalizar', sessionId: sessionId })
           }).catch(function () { /* best effort */ });
