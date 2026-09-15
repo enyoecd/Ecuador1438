@@ -513,6 +513,65 @@
       to { transform: rotate(360deg); }
     }
 
+    /* Error mostrado DENTRO del recuadro negro (en vez de alert()) */
+    .camara-error {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 24px;
+      background: rgba(0, 0, 0, 0.92);
+      color: #fecaca;
+      text-align: center;
+    }
+
+    .camara-error.active {
+      display: flex;
+    }
+
+    .camara-error-icon {
+      font-size: 2rem;
+    }
+
+    .camara-error-text {
+      margin: 0;
+      font-size: .9rem;
+      line-height: 1.45;
+      font-weight: 600;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #fca5a5;
+    }
+
+    .camara-error-sug {
+      margin: 0;
+      font-size: .78rem;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #94a3b8;
+    }
+
+    .camara-error button {
+      margin-top: 4px;
+      background: #dc2626;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 22px;
+      font-size: .85rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .camara-error button:hover {
+      background: #ef4444;
+    }
+
     .camara-live-badge {
       position: absolute;
       top: 12px;
@@ -695,7 +754,7 @@
           <img alt="Puerta 1" class="w-full h-full object-cover" src="imagenes/puerta1.jpeg" />
         </div>
       </div>
-      <h2 class="text-lg font-bold mt-2 text-sky-300">Puerta 1 - Ecuador 1438</h2>
+      <h2 class="text-lg font-bold mt-2 text-sky-300">Puerta 1 - Ecuador 1438.</h2>
     </div>
 
     <!-- Form Section -->
@@ -831,6 +890,12 @@
         <div class="camara-loading" id="camara-loading" role="status" aria-live="polite">
           <div class="camara-loading-spinner" aria-hidden="true"></div>
           <p class="camara-loading-text" id="camara-loading-text">Se está cargando la imagen...</p>
+        </div>
+        <div class="camara-error" id="camara-error" role="alert" aria-live="assertive">
+          <div class="camara-error-icon" aria-hidden="true">⚠️</div>
+          <p class="camara-error-text" id="camara-error-text"></p>
+          <p class="camara-error-sug" id="camara-error-sug"></p>
+          <button id="camara-error-close" type="button">Cerrar</button>
         </div>
         <div class="camara-live-badge">
           <div class="camara-live-dot"></div>
@@ -1185,6 +1250,10 @@
       var cooldownText = document.getElementById('camara-cooldown-text');
       var loadingPanel = document.getElementById('camara-loading');
       var loadingText = document.getElementById('camara-loading-text');
+      var errorPanel = document.getElementById('camara-error');
+      var errorText = document.getElementById('camara-error-text');
+      var errorSug = document.getElementById('camara-error-sug');
+      var btnErrorClose = document.getElementById('camara-error-close');
 
       // ── HELPERS ───────────────────────────────────────────────
       function formatTime(s) {
@@ -1334,6 +1403,7 @@
       function mostrarCargaCamara(mensaje) {
         if (loadingText) loadingText.textContent = mensaje || 'Se está cargando la imagen...';
         if (loadingPanel) loadingPanel.classList.add('active');
+        if (errorPanel) errorPanel.classList.remove('active');
         if (camaraModal) camaraModal.setAttribute('aria-busy', 'true');
         if (statusText) statusText.textContent = mensaje || 'Se está cargando la imagen...';
       }
@@ -1341,6 +1411,54 @@
       function ocultarCargaCamara() {
         if (loadingPanel) loadingPanel.classList.remove('active');
         if (camaraModal) camaraModal.removeAttribute('aria-busy');
+      }
+
+      // Error visible DENTRO del recuadro negro (sin alert()).
+      function mostrarErrorCamara(mensaje, sugerencia) {
+        camaraState.cargando = false;
+        setModo('idle');
+        ocultarCargaCamara();
+        if (errorText) errorText.textContent = mensaje || 'No se pudo conectar con la cámara.';
+        if (errorSug) errorSug.textContent = sugerencia || '';
+        if (errorPanel) errorPanel.classList.add('active');
+        console.error('[Cámara] Error:', mensaje || '', sugerencia || '');
+      }
+
+      function ocultarErrorCamara() {
+        if (errorPanel) errorPanel.classList.remove('active');
+        if (errorText) errorText.textContent = '';
+        if (errorSug) errorSug.textContent = '';
+      }
+
+      // Aborta un intento de inicio de transmisión SIN cerrar el modal: deja el
+      // recuadro negro abierto para mostrar el error dentro de él. El botón
+      // "Cerrar" del panel de error ejecuta limpiarSesionLocal().
+      function abortarInicioCamara() {
+        var sid = camaraState.sessionId;
+        camaraState.activa = false;
+        camaraState.cargando = false;
+        camaraState.sessionId = null;
+        camaraState.appId = null;
+        if (camaraState.pc) { camaraState.pc.close(); camaraState.pc = null; }
+        if (camaraState.stream) {
+          camaraState.stream.getTracks().forEach(function (t) { t.stop(); });
+          camaraState.stream = null;
+        }
+        if (localVideo) localVideo.srcObject = null;
+        ocultarCargaCamara();
+        ocultarErrorCamara();
+        detenerTimer();
+        detenerLatido();
+        setModo('idle');
+        // Si ya se reservó una sesión en el backend, liberarla (best effort).
+        if (sid) {
+          fetch(WORKER_URL, {
+            method: 'POST',
+            credentials: 'omit',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipo: 'camara', accion: 'finalizar', sessionId: sid })
+          }).catch(function () { /* best effort */ });
+        }
       }
 
       function iniciarTimer() {
@@ -1436,19 +1554,21 @@
         var stream;
         // getUserMedia sólo está disponible en un contexto seguro, como Pages.
         if (!window.isSecureContext) {
-          limpiarSesionLocal();
-          setModo('idle');
-          alert('La transmisión de la cámara requiere HTTPS. Accede a la página usando https:// o configura un proxy seguro (ej. Cloudflare, GitHub Pages con HTTPS).');
+          abortarInicioCamara();
+          mostrarErrorCamara(
+            'Se requiere HTTPS para usar la cámara.',
+            'Accede a la página con https:// o configura un proxy seguro (ej. Cloudflare Pages).'
+          );
           return;
         }
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         } catch (err) {
-          camaraState.cargando = false;
-          setModo('idle');
-          cerrarModal();
           ocultarCargaCamara();
-          alert('No se pudo acceder a la cámara/micrófono: ' + (err.message || err));
+          mostrarErrorCamara(
+            'No se pudo acceder a la cámara/micrófono: ' + (err.message || err),
+            'Verifica que el navegador tenga permisos de cámara y micrófono.'
+          );
           return;
         }
 
@@ -1487,10 +1607,11 @@
           await esperarIceCompleto(pc, 2000);
           tracks = obtenerTracksLocales(pc);
         } catch (sdpErr) {
-          camaraState.cargando = false;
-          limpiarSesionLocal();
-          setModo('idle');
-          alert('Error creando oferta WebRTC: ' + sdpErr.message);
+          abortarInicioCamara();
+          mostrarErrorCamara(
+            'Error creando la oferta WebRTC: ' + sdpErr.message,
+            'Reinicia la cámara y vuelve a intentarlo.'
+          );
           return;
         }
         console.info('[Cámara] Pistas a publicar:', {
@@ -1521,17 +1642,16 @@
             return;
           }
           if (!workerResp.ok || workerData.error) {
-            camaraState.cargando = false;
-            limpiarSesionLocal();
-            setModo('idle');
+            abortarInicioCamara();
             mostrarErrorSfu(workerData);
             return;
           }
         } catch (netErr) {
-          camaraState.cargando = false;
-          limpiarSesionLocal();
-          setModo('idle');
-          alert('Error de red al conectar con el servidor.');
+          abortarInicioCamara();
+          mostrarErrorCamara(
+            'Error de red al conectar con el servidor.',
+            'Comprueba tu conexión a internet e inténtalo de nuevo.'
+          );
           return;
         }
 
@@ -1556,13 +1676,16 @@
           sfuData = await sfuResp.json().catch(function () { return {}; });
 
           if (!sfuResp.ok || !sfuData.sessionDescription) {
-            finalizarCamara(true);
+            abortarInicioCamara();
             mostrarErrorSfu(sfuData);
             return;
           }
         } catch (sfuErr) {
-          finalizarCamara(true);
-          alert('No se pudo conectar con el sistema SFU: ' + sfuErr.message);
+          abortarInicioCamara();
+          mostrarErrorCamara(
+            'No se pudo conectar con el sistema SFU: ' + sfuErr.message,
+            'Revisa los secrets ID_app y Token_API del Worker y vuelve a intentarlo.'
+          );
           return;
         }
 
@@ -1570,8 +1693,11 @@
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(sfuData.sessionDescription));
         } catch (ansErr) {
-          finalizarCamara(true);
-          alert('Error aplicando respuesta WebRTC: ' + ansErr.message);
+          abortarInicioCamara();
+          mostrarErrorCamara(
+            'Error aplicando la respuesta WebRTC del SFU: ' + ansErr.message,
+            'Reinicia la cámara y vuelve a intentarlo.'
+          );
           return;
         }
 
@@ -1594,35 +1720,39 @@
         };
       }
 
-      // Muestra un error del SFU con el detalle diagnóstico devuelto por el backend
-      // y, si el rechazo proviene de credenciales, ejecuta "diagnostico" para
-      // decirle al usuario exactamente qué revisar en Cloudflare.
+      // Muestra un error del SFU dentro del recuadro negro. Si el rechazo proviene
+      // de credenciales, ejecuta "diagnostico" y actualiza el mensaje con los
+      // pasos exactos para revisar ID_app / Token_API en Cloudflare.
       var diagnosticoSfuHecho = false;
       function mostrarErrorSfu(data) {
         var base = data.error || data.motivo || 'No se pudo conectar con el sistema SFU.';
-        var detalle = data.sugerencia ? '\n\n' + data.sugerencia : '';
-        if (data.sfuStatus) detalle += '\n\nCódigo del SFU: HTTP ' + data.sfuStatus;
+        if (data.sfuOperacion) base = base.replace(/(\.+)?$/, '') + ' (' + data.sfuOperacion + ')';
+        var detalle = data.sugerencia || '';
+        if (data.sfuStatus) detalle += (detalle ? '\n\n' : '') + 'Código del SFU: HTTP ' + data.sfuStatus;
         if (data.sfuDetalle && data.sfuDetalle !== 'Sin detalle devuelto por el SFU.') {
-          detalle += '\nDetalle: ' + data.sfuDetalle;
+          detalle += (detalle ? '\n' : '') + 'Detalle: ' + data.sfuDetalle;
         }
+        mostrarErrorCamara(base, detalle);
 
-        if (diagnosticoSfuHecho) { window.alert(base + detalle); return; }
+        if (diagnosticoSfuHecho || !camaraModal || !errorText) return;
         diagnosticoSfuHecho = true;
 
         fetch(WORKER_URL + '?tipo=camara&accion=diagnostico', { cache: 'no-store', credentials: 'omit' })
           .then(function (r) { return r.json().catch(function () { return {}; }); })
           .then(function (d) {
             if (d && d.ok) {
-              window.alert(base + detalle + '\n\n✔ Diagnóstico del SFU: ' + (d.mensaje || 'credenciales válidas.'));
+              errorText.textContent = base + '\n\n✔ Diagnóstico del SFU: ' + (d.mensaje || 'credenciales válidas.');
+              if (errorSug) errorSug.textContent = '';
             } else {
               var motivoD = (d && d.motivo) || 'No se pudieron validar las credenciales.';
               var pasos = (d && Array.isArray(d.pasos) && d.pasos.length)
-                ? '\n\nPasos sugeridos:\n' + d.pasos.map(function (p, i) { return '  ' + (i + 1) + '. ' + p; }).join('\n')
+                ? 'Pasos sugeridos:\n' + d.pasos.map(function (p, i) { return '  ' + (i + 1) + '. ' + p; }).join('\n')
                 : '';
-              window.alert(base + detalle + '\n\n⚙ Diagnóstico del SFU: ' + motivoD + pasos);
+              errorText.textContent = base + '\n\n⚙ Diagnóstico del SFU: ' + motivoD;
+              if (errorSug) errorSug.textContent = pasos;
             }
           })
-          .catch(function () { window.alert(base + detalle); });
+          .catch(function () {});
       }
 
       // Cierra la PeerConnection local y detiene los tracks sin tocar
@@ -1636,7 +1766,15 @@
         }
         if (localVideo) localVideo.srcObject = null;
         ocultarCargaCamara();
+        ocultarErrorCamara();
         cerrarModal();
+      }
+
+      if (btnErrorClose) {
+        btnErrorClose.addEventListener('click', function () {
+          limpiarSesionLocal();
+          setModo('idle');
+        });
       }
 
       // ── FINALIZAR TRANSMISIÓN ─────────────────────────────────
@@ -1658,6 +1796,7 @@
         if (localVideo) localVideo.srcObject = null;
         cerrarModal();
         ocultarCargaCamara();
+        ocultarErrorCamara();
         detenerTimer();
         detenerLatido();
         setModo('idle');
