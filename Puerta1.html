@@ -398,6 +398,31 @@
       background: #f59e0b;
     }
 
+    #btn-camara-p1.camara-cargando {
+      border-color: rgba(251, 191, 36, 0.55);
+      background: rgba(251, 191, 36, 0.12);
+      color: #fbbf24;
+      cursor: wait;
+      animation: camara-pulse-btn 1.2s ease-in-out infinite;
+    }
+
+    #btn-camara-p1.camara-cargando .camara-dot {
+      animation: camara-blink 1.1s ease-in-out infinite;
+    }
+
+    @keyframes camara-pulse-btn {
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.55;
+        transform: scale(0.96);
+      }
+    }
+
     .camara-modal {
       position: fixed;
       inset: 0;
@@ -447,6 +472,45 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+    }
+
+    .camara-loading {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 24px;
+      background: #000;
+      color: #e0f2fe;
+      text-align: center;
+    }
+
+    .camara-loading.active {
+      display: flex;
+    }
+
+    .camara-loading-spinner {
+      width: 34px;
+      height: 34px;
+      border: 3px solid rgba(56, 189, 248, 0.22);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: camara-loading-spin .8s linear infinite;
+    }
+
+    .camara-loading-text {
+      margin: 0;
+      font-size: .9rem;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+
+    @keyframes camara-loading-spin {
+      to { transform: rotate(360deg); }
     }
 
     .camara-live-badge {
@@ -764,6 +828,10 @@
     <div class="camara-modal-card">
       <div class="camara-video-wrap">
         <video id="camara-local-video" autoplay muted playsinline></video>
+        <div class="camara-loading" id="camara-loading" role="status" aria-live="polite">
+          <div class="camara-loading-spinner" aria-hidden="true"></div>
+          <p class="camara-loading-text" id="camara-loading-text">Se está cargando la imagen...</p>
+        </div>
         <div class="camara-live-badge">
           <div class="camara-live-dot"></div>
           <span>En vivo</span>
@@ -1091,6 +1159,7 @@
       // ── ESTADO LOCAL ──────────────────────────────────────────
       var camaraState = {
         activa: false,
+        cargando: false,
         sessionId: null,
         appId: null,
         pc: null,
@@ -1114,6 +1183,8 @@
       var busyText = document.getElementById('camara-busy-text');
       var cooldownModal = document.getElementById('camara-cooldown-modal');
       var cooldownText = document.getElementById('camara-cooldown-text');
+      var loadingPanel = document.getElementById('camara-loading');
+      var loadingText = document.getElementById('camara-loading-text');
 
       // ── HELPERS ───────────────────────────────────────────────
       function formatTime(s) {
@@ -1122,7 +1193,7 @@
 
       function setModo(modo) {
         if (!btnCamara) return;
-        btnCamara.classList.remove('camara-activa', 'camara-ocupada', 'camara-bloqueada');
+        btnCamara.classList.remove('camara-activa', 'camara-ocupada', 'camara-bloqueada', 'camara-cargando');
         var dot = btnCamara.querySelector('.camara-dot');
         if (modo === 'idle') {
           if (dot) dot.style.background = '#34d399';
@@ -1142,6 +1213,7 @@
           btnCamara.title = 'La cámara está siendo usada por otra persona';
           if (btnLabel) btnLabel.textContent = 'En uso';
         } else if (modo === 'cargando') {
+          btnCamara.classList.add('camara-cargando');
           if (dot) dot.style.background = '#fbbf24';
           btnCamara.disabled = true;
           if (btnLabel) btnLabel.textContent = '...';
@@ -1157,11 +1229,12 @@
       // ── POLLING DEL ESTADO DEL SERVIDOR ───────────────────────
       function verificarEstado() {
         if (camaraState.activa) return;
+        if (camaraState.cargando) return;
         if (camaraState.bloqueada) return;
         fetch(WORKER_URL + '?tipo=camara&accion=estado', { cache: 'no-store', credentials: 'omit' })
           .then(function (r) { return r.json().catch(function () { return {}; }); })
           .then(function (d) {
-            if (!camaraState.bloqueada && !camaraState.activa) {
+            if (!camaraState.cargando && !camaraState.bloqueada && !camaraState.activa) {
               setModo(d.ocupado ? 'ocupada' : 'idle');
             }
           })
@@ -1258,6 +1331,18 @@
         camaraModal.setAttribute('aria-hidden', 'true');
       }
 
+      function mostrarCargaCamara(mensaje) {
+        if (loadingText) loadingText.textContent = mensaje || 'Se está cargando la imagen...';
+        if (loadingPanel) loadingPanel.classList.add('active');
+        if (camaraModal) camaraModal.setAttribute('aria-busy', 'true');
+        if (statusText) statusText.textContent = mensaje || 'Se está cargando la imagen...';
+      }
+
+      function ocultarCargaCamara() {
+        if (loadingPanel) loadingPanel.classList.remove('active');
+        if (camaraModal) camaraModal.removeAttribute('aria-busy');
+      }
+
       function iniciarTimer() {
         camaraState.timerSeconds = 0;
         if (timerDisplay) timerDisplay.textContent = '00:00';
@@ -1320,22 +1405,6 @@
         });
       }
 
-      // Espera (con timeout) a que la conexión llegue a 'connected'/'completed'
-      // antes de renegociar tras la respuesta inicial de la sesión.
-      function esperarConexion(pc, ms) {
-        return new Promise(function (resolve) {
-          if (!pc) { resolve(); return; }
-          var s = pc.iceConnectionState;
-          if (s === 'connected' || s === 'completed') { resolve(); return; }
-          var done = false;
-          var fin = function () { if (!done) { done = true; resolve(); } };
-          pc.addEventListener('iceconnectionstatechange', function () {
-            if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') fin();
-          });
-          setTimeout(fin, ms || 5000);
-        });
-      }
-
       // ── INICIAR TRANSMISIÓN ───────────────────────────────────
       // Lee los transceptores con pistas enviadas y devuelve la lista de
       // tracks locales para registrar en el SFU (required por Calls).
@@ -1354,9 +1423,15 @@
       }
 
       async function iniciarCamara() {
-        if (camaraState.activa) return;
+        if (camaraState.activa || camaraState.cargando) return;
         if (camaraState.bloqueada) { mostrarCooldown(); return; }
+        // Respuesta visual inmediata: se abre el contenedor negro y se muestra el
+        // spinner ANTES de pedir permisos, crear la PeerConnection o contactar al
+        // SFU, para que el botón "responda" al instante.
+        camaraState.cargando = true;
         setModo('cargando');
+        abrirModal();
+        mostrarCargaCamara('Se está cargando la imagen...');
 
         var stream;
         // getUserMedia sólo está disponible en un contexto seguro, como Pages.
@@ -1369,13 +1444,15 @@
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         } catch (err) {
+          camaraState.cargando = false;
           setModo('idle');
+          cerrarModal();
+          ocultarCargaCamara();
           alert('No se pudo acceder a la cámara/micrófono: ' + (err.message || err));
           return;
         }
 
-        // 1. Crear la PeerConnection hacia el SFU y la oferta SDP
-        //    (la API de Calls exige la oferta al crear la sesión)
+        // 1. Crear la PeerConnection hacia el SFU.
         var pc = new RTCPeerConnection({
           iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }],
           bundlePolicy: 'max-bundle'
@@ -1400,15 +1477,17 @@
           localVideo.play().catch(function () {});
         }
 
+        // 2. Crear la ÚNICA oferta SDP que se usará para publicar en el SFU
+        //    (patrón canónico de Cloudflare Calls). Los `mid` leídos aquí deben
+        //    coincidir EXACTAMENTE con los de esta misma oferta enviada arriba.
         var tracks;
         try {
-          var ofertaInicial = await pc.createOffer();
-          await pc.setLocalDescription(ofertaInicial);
-          await esperarIceCompleto(pc, 3000);
-          // Registrar explícitamente cada pista de video y audio con el mid de
-          // su transceptor en la oferta local (requerido por el SFU de Calls).
+          var oferta = await pc.createOffer();
+          await pc.setLocalDescription(oferta);
+          await esperarIceCompleto(pc, 2000);
           tracks = obtenerTracksLocales(pc);
         } catch (sdpErr) {
+          camaraState.cargando = false;
           limpiarSesionLocal();
           setModo('idle');
           alert('Error creando oferta WebRTC: ' + sdpErr.message);
@@ -1419,7 +1498,7 @@
           tracks: tracks.map(function (t) { return { mid: t.mid, trackName: t.trackName }; })
         });
 
-        // 2. Reservar sesión en el backend (crea la sesión SFU con la oferta)
+        // 3. Reservar la sesión en el backend (SIN oferta: sessions/new vacío).
         var workerData = {};
         try {
           var workerResp = await fetch(WORKER_URL, {
@@ -1428,13 +1507,13 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               tipo: 'camara',
-              accion: 'iniciar',
-              sessionDescription: { type: 'offer', sdp: pc.localDescription.sdp }
+              accion: 'iniciar'
             })
           });
           workerData = await workerResp.json().catch(function () { return {}; });
 
           if (workerResp.status === 409 || workerData.ocupado) {
+            camaraState.cargando = false;
             limpiarSesionLocal();
             setModo('ocupada');
             mostrarOcupado(workerData.mensaje || 'La cámara ya está siendo utilizada.');
@@ -1442,12 +1521,14 @@
             return;
           }
           if (!workerResp.ok || workerData.error) {
+            camaraState.cargando = false;
             limpiarSesionLocal();
             setModo('idle');
-            alert(workerData.error || 'No se pudo iniciar la cámara (HTTP ' + workerResp.status + ').');
+            mostrarErrorSfu(workerData);
             return;
           }
         } catch (netErr) {
+          camaraState.cargando = false;
           limpiarSesionLocal();
           setModo('idle');
           alert('Error de red al conectar con el servidor.');
@@ -1457,30 +1538,9 @@
         camaraState.sessionId = workerData.sessionId;
         camaraState.appId = workerData.appId;
 
-        // 3. Aplicar la respuesta del SFU si la API de Calls la devuelve
-        if (workerData.sessionDescription) {
-          try {
-            await pc.setRemoteDescription(new RTCSessionDescription(workerData.sessionDescription));
-          } catch (ansErr) {
-            finalizarCamara(true);
-            alert('Error aplicando respuesta WebRTC: ' + ansErr.message);
-            return;
-          }
-          await esperarConexion(pc, 5000);
-        }
-
-        // 4. Renegociar/registrar los tracks con una oferta nueva
+        // 4. Publicar las pistas en el SFU con la oferta ya preparada.
         var sfuData = {};
         try {
-          var ofertaTracks = await pc.createOffer();
-          await pc.setLocalDescription(ofertaTracks);
-          await esperarIceCompleto(pc, 3000);
-
-          // Volver a leer los transceptores sobre la oferta renegociada:
-          // los `mid` deben coincidir con esta SDP (no con la primera), de lo
-          // contrario el SFU filtra la pista de video y el visor la ve negra.
-          tracks = obtenerTracksLocales(pc);
-
           var sfuResp = await fetch(WORKER_URL, {
             method: 'POST',
             credentials: 'omit',
@@ -1497,7 +1557,7 @@
 
           if (!sfuResp.ok || !sfuData.sessionDescription) {
             finalizarCamara(true);
-            alert('El SFU rechazó la conexión de cámara. Revisa ID_app / Token_API.');
+            mostrarErrorSfu(sfuData);
             return;
           }
         } catch (sfuErr) {
@@ -1515,8 +1575,10 @@
           return;
         }
 
+        camaraState.cargando = false;
         camaraState.activa = true;
         setModo('activa');
+        ocultarCargaCamara();
         abrirModal();
         iniciarTimer();
         if (statusText) {
@@ -1532,24 +1594,59 @@
         };
       }
 
+      // Muestra un error del SFU con el detalle diagnóstico devuelto por el backend
+      // y, si el rechazo proviene de credenciales, ejecuta "diagnostico" para
+      // decirle al usuario exactamente qué revisar en Cloudflare.
+      var diagnosticoSfuHecho = false;
+      function mostrarErrorSfu(data) {
+        var base = data.error || data.motivo || 'No se pudo conectar con el sistema SFU.';
+        var detalle = data.sugerencia ? '\n\n' + data.sugerencia : '';
+        if (data.sfuStatus) detalle += '\n\nCódigo del SFU: HTTP ' + data.sfuStatus;
+        if (data.sfuDetalle && data.sfuDetalle !== 'Sin detalle devuelto por el SFU.') {
+          detalle += '\nDetalle: ' + data.sfuDetalle;
+        }
+
+        if (diagnosticoSfuHecho) { window.alert(base + detalle); return; }
+        diagnosticoSfuHecho = true;
+
+        fetch(WORKER_URL + '?tipo=camara&accion=diagnostico', { cache: 'no-store', credentials: 'omit' })
+          .then(function (r) { return r.json().catch(function () { return {}; }); })
+          .then(function (d) {
+            if (d && d.ok) {
+              window.alert(base + detalle + '\n\n✔ Diagnóstico del SFU: ' + (d.mensaje || 'credenciales válidas.'));
+            } else {
+              var motivoD = (d && d.motivo) || 'No se pudieron validar las credenciales.';
+              var pasos = (d && Array.isArray(d.pasos) && d.pasos.length)
+                ? '\n\nPasos sugeridos:\n' + d.pasos.map(function (p, i) { return '  ' + (i + 1) + '. ' + p; }).join('\n')
+                : '';
+              window.alert(base + detalle + '\n\n⚙ Diagnóstico del SFU: ' + motivoD + pasos);
+            }
+          })
+          .catch(function () { window.alert(base + detalle); });
+      }
+
       // Cierra la PeerConnection local y detiene los tracks sin tocar
       // el estado de sesión del servidor (se usa antes de reservar sesión).
       function limpiarSesionLocal() {
+        camaraState.cargando = false;
         if (camaraState.pc) { camaraState.pc.close(); camaraState.pc = null; }
         if (camaraState.stream) {
           camaraState.stream.getTracks().forEach(function (t) { t.stop(); });
           camaraState.stream = null;
         }
         if (localVideo) localVideo.srcObject = null;
+        ocultarCargaCamara();
+        cerrarModal();
       }
 
       // ── FINALIZAR TRANSMISIÓN ─────────────────────────────────
       function finalizarCamara(error) {
-        if (!camaraState.activa && !camaraState.sessionId) return;
+        if (!camaraState.activa && !camaraState.sessionId) { camaraState.cargando = false; return; }
         var sessionId = camaraState.sessionId;
         var transmisionActiva = camaraState.activa;
 
         camaraState.activa = false;
+        camaraState.cargando = false;
         camaraState.sessionId = null;
         camaraState.appId = null;
 
@@ -1560,6 +1657,7 @@
         }
         if (localVideo) localVideo.srcObject = null;
         cerrarModal();
+        ocultarCargaCamara();
         detenerTimer();
         detenerLatido();
         setModo('idle');
