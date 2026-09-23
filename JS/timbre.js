@@ -285,3 +285,117 @@
     sendForm: sendForm
   };
 })();
+
+(function () {
+  if (!document.querySelector('.page')) return;
+
+  // Capturar fecha y hora de ingreso al entrar mediante el QR a index
+  var nowIngreso = new Date();
+  var dd = String(nowIngreso.getDate()).padStart(2, '0');
+  var mm = String(nowIngreso.getMonth() + 1).padStart(2, '0');
+  var yyyy = nowIngreso.getFullYear();
+  var hh = String(nowIngreso.getHours()).padStart(2, '0');
+  var min = String(nowIngreso.getMinutes()).padStart(2, '0');
+  var ss = String(nowIngreso.getSeconds()).padStart(2, '0');
+
+  sessionStorage.setItem('fechaIngreso', dd + '/' + mm + '/' + yyyy);
+  sessionStorage.setItem('horaIngreso', hh + ':' + min + ':' + ss);
+
+  var modal = document.getElementById('timbre-modal');
+  var modalCard = document.getElementById('timbre-modal-card');
+  var modalText = modal ? modal.querySelector('.timbre-modal-text') : null;
+  var timbreButtons = document.querySelectorAll('.button-timbre');
+  var timerId = null;
+
+  function playDoorbellChime() {
+    try {
+      var AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      var ctx = new AudioCtx();
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      // Tone 1: Ding - E5 (659.25 Hz)
+      var osc1 = ctx.createOscillator();
+      var gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(659.25, ctx.currentTime);
+      gain1.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(ctx.currentTime);
+      osc1.stop(ctx.currentTime + 0.9);
+
+      // Tone 2: Dong - C5 (523.25 Hz)
+      var osc2 = ctx.createOscillator();
+      var gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(523.25, ctx.currentTime + 0.35);
+      gain2.gain.setValueAtTime(0.35, ctx.currentTime + 0.35);
+      gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.4);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(ctx.currentTime + 0.35);
+      osc2.stop(ctx.currentTime + 1.4);
+    } catch (e) {
+      console.error('Error al reproducir el sonido del timbre:', e);
+    }
+  }
+
+  function refreshButtons() {
+    timbreButtons.forEach(function (btn) {
+      var door = btn.getAttribute('data-door') || '1';
+      window.TimbreManager.updateButtonState(btn, door);
+    });
+  }
+
+  async function triggerTimbre(doorNumber, btn) {
+    window.TimbreManager.triggerDoorbell(doorNumber, function (result) {
+      if (!result.allowed) {
+        refreshButtons();
+        return;
+      }
+
+      if (modalText) {
+        if (result.isThird) {
+          modalText.textContent = "Timbre sonando. Vuelve a usarlo en 30 minutos.";
+        } else {
+          modalText.textContent = "Timbre sonando";
+        }
+      }
+
+      modalCard.classList.remove('door-1', 'door-2');
+      modalCard.classList.add('door-' + doorNumber);
+
+      modal.classList.add('active');
+      modal.setAttribute('aria-hidden', 'false');
+
+      playDoorbellChime();
+
+      if (timerId) {
+        clearTimeout(timerId);
+      }
+
+      timerId = setTimeout(function () {
+        modal.classList.remove('active');
+        modal.setAttribute('aria-hidden', 'true');
+      }, result.isThird ? 4000 : 2500);
+
+      refreshButtons();
+    });
+  }
+
+  timbreButtons.forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      var door = this.getAttribute('data-door') || '1';
+      triggerTimbre(door, this);
+    });
+  });
+
+  // Inicializar botones y refrescar periódicamente para desbloqueo automático
+  refreshButtons();
+  setInterval(refreshButtons, 1000);
+})();
