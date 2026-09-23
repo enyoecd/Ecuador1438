@@ -1,0 +1,378 @@
+/* ═══════════════════════════════════════════════════
+   puerta1.css — Estilos específicos de Puerta 1
+   Ecuador 1438
+   ─────────────────────────────────────────────────
+   El layout y los componentes se apoyan en Tailwind CSS
+   (CDN). Aquí se definen los colores personalizados,
+   los modales (timbre, mensaje enviado, límite y
+   ampliar imagen) y los estados del botón de timbre.
+
+   Secciones:
+     1. Variables y estilos base
+     2. Avatar de puerta animado
+     3. Modal Timbre
+     4. Modal Mensaje Enviado
+     5. Modal Aviso de Límite del Timbre
+     6. Estados del botón de timbre (bloqueado/deshabilitado)
+     7. Selects del formulario
+     8. Modal Ampliar Imagen
+     9. Hover del avatar de puerta
+    10. Preferencia: movimiento reducido
+   ═══════════════════════════════════════════════════ */
+
+/* ───────── 1. VARIABLES Y ESTILOS BASE ───────── */
+:root {
+  --bg-stadium: #1a202c;
+  --card-bg: #2d3748;
+  --input-bg: #ffffff;
+  --button-bg: #38bdf8;
+  --text-label: #a0aec0;
+  --text-white: #ffffff;
+}
+
+body {
+  background-color: #1a2a3a;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow: hidden;
+}
+
+/* ───────── 2. AVATAR DE PUERTA ANIMADO ───────── */
+.door-avatar-pulse {
+  position: relative;
+  isolation: isolate;
+}
+
+.door-avatar-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  z-index: -1;
+  border: 2px solid #38bdf8;
+  border-radius: 9999px;
+  background: rgb(56 189 248 / 12%);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 30%), 0 0 14px #38bdf8;
+  pointer-events: none;
+  animation: door-avatar-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes door-avatar-pulse {
+
+  0%,
+  100% {
+    opacity: .5;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: .95;
+    transform: scale(1.09);
+  }
+}
+
+/* ───────── 3. MODAL TIMBRE ───────── */
+.timbre-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 16, 26, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 220ms ease, visibility 220ms ease;
+  padding: 16px;
+}
+
+.timbre-modal.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.timbre-modal-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 36px;
+  border-radius: 1.5rem;
+  background: #2d3748;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  transform: scale(0.85);
+  transition: transform 220ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  max-width: 280px;
+  width: 100%;
+  border: 2px solid #38bdf8;
+  background: linear-gradient(145deg, #1e293b, #0f172a);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(56, 189, 248, 0.3);
+}
+
+.timbre-modal.active .timbre-modal-card {
+  transform: scale(1);
+}
+
+.timbre-bell-icon {
+  font-size: 3.2rem;
+  line-height: 1;
+  display: inline-block;
+  transform-origin: top center;
+}
+
+.timbre-modal.active .timbre-bell-icon {
+  animation: bell-ring 0.55s ease-in-out infinite alternate;
+}
+
+.timbre-modal-text {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #e0f2fe;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+@keyframes bell-ring {
+  0% {
+    transform: rotate(-24deg);
+  }
+
+  100% {
+    transform: rotate(24deg);
+  }
+}
+
+/* ───────── 4. MODAL MENSAJE ENVIADO ───────── */
+.msg-modal-card {
+  max-width: 300px;
+  padding: 24px 32px;
+}
+
+.msg-modal-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.msg-plane-icon {
+  width: 2.2rem;
+  height: 2.2rem;
+  color: #38bdf8;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.timbre-modal.active .msg-plane-icon {
+  animation: paper-plane-fly 1.4s ease-in-out infinite alternate;
+}
+
+.msg-modal-text {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #e0f2fe;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+@keyframes paper-plane-fly {
+  0% {
+    transform: translate(-8px, 6px) scale(0.85);
+    opacity: 0.7;
+  }
+
+  50% {
+    transform: translate(4px, -4px) scale(1.08);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(10px, -10px) scale(1.02);
+    opacity: 0.95;
+  }
+}
+
+/* ───────── 5. MODAL AVISO DE LÍMITE DEL TIMBRE ───────── */
+.timbre-limit-card {
+  max-width: 250px;
+  width: 85%;
+  padding: 14px 18px;
+  border-radius: 1.25rem;
+  background: linear-gradient(145deg, #1e293b, #0f172a);
+  border: 1.5px solid #f59e0b;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55), 0 0 20px rgba(245, 158, 11, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.timbre-limit-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.timbre-limit-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+
+.timbre-limit-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke: #fbbf24;
+}
+
+.timbre-limit-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #fbbf24;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+
+.timbre-limit-text {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #e2e8f0;
+  line-height: 1.35;
+}
+
+/* ───────── 6. ESTADOS DEL BOTÓN DE TIMBRE (BLOQUEADO/DESHABILITADO) ───────── */
+#btn-timbre-p1.timbre-locked, #btn-timbre-p1.timbre-disabled {
+  opacity: 0.55;
+  filter: grayscale(0.5);
+  cursor: pointer;
+}
+
+#btn-timbre-p1.timbre-locked:hover, #btn-timbre-p1.timbre-disabled:hover {
+  opacity: 0.75;
+  filter: grayscale(0.2);
+}
+
+/* ───────── 7. SELECTS DEL FORMULARIO ───────── */
+select:invalid {
+  color: #9ca3af;
+}
+
+select option {
+  color: #111827;
+}
+
+select option[disabled] {
+  color: #9ca3af;
+}
+
+/* ───────── 8. MODAL AMPLIAR IMAGEN ───────── */
+.image-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 16, 26, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 280ms ease, visibility 280ms ease;
+  padding: 16px;
+  cursor: pointer;
+}
+
+.image-modal.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.image-modal-card {
+  position: relative;
+  max-width: min(88vw, 420px);
+  max-height: 75vh;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  border: 2px solid #38bdf8;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(56, 189, 248, 0.35);
+  transform: scale(0.7);
+  transition: transform 280ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  background: #1a2a3a;
+}
+
+.image-modal.active .image-modal-card {
+  transform: scale(1);
+}
+
+.image-modal-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 75vh;
+  object-fit: contain;
+}
+
+.image-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  background: rgba(26, 42, 58, 0.85);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  z-index: 10;
+  transition: background 180ms ease;
+}
+
+.image-modal-close:hover {
+  background: #38bdf8;
+  color: #1a2a3a;
+}
+
+/* ───────── 9. HOVER DEL AVATAR DE PUERTA ───────── */
+.door-avatar-pulse {
+  cursor: pointer;
+  transition: transform 180ms ease;
+}
+
+.door-avatar-pulse:hover {
+  transform: scale(1.05);
+}
+
+/* ───────── 10. PREFERENCIA: MOVIMIENTO REDUCIDO ───────── */
+@media (prefers-reduced-motion: reduce) {
+  .door-avatar-pulse::after {
+    animation: none;
+  }
+
+  .image-modal-card {
+    transition: none;
+  }
+}
