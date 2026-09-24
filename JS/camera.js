@@ -7,16 +7,30 @@
    transmisión al instante con la cámara frontal y el
    audio. El enlace de visualización se genera solo y
    se notifica por Telegram de forma automática.
+
+   Videollamada bidireccional: la puerta queda a la
+   espera (waitReturn) de que el visor conteste. Al
+   contestar, el SFU entrega las pistas de retorno del
+   visor dentro de la misma sesión (WHEP+WHIP) y la
+   modal se divide en dos cuadros con controles de audio.
    ═══════════════════════════════════════════════ */
 (function () {
   'use strict';
 
   var DOOR = '1';
+  var DOOR_ID = 'puerta1';
 
   var modal = document.getElementById('camera-modal');
   var btnOpen = document.getElementById('btn-live-p1');
   var btnClose = document.getElementById('btn-close-camera');
   var video = document.getElementById('cam-live-video');
+  var camStage = document.getElementById('cam-stage');
+  var returnPane = document.getElementById('cam-return-pane');
+  var returnVideo = document.getElementById('cam-return-video');
+  var callPill = document.getElementById('cam-call-pill');
+  var camControls = document.getElementById('cam-controls');
+  var btnSpeaker = document.getElementById('btn-cam-speaker');
+  var btnMic = document.getElementById('btn-cam-mic');
   var placeholder = document.getElementById('cam-live-placeholder');
   var hintText = document.getElementById('cam-hint-text');
   var statusPill = document.getElementById('cam-status-pill');
@@ -24,7 +38,11 @@
 
   var controller = null;
   var mediaStream = null;
+  var remoteStream = null;
+  var remoteAudioTrack = null;
   var telegramNotified = false;
+  var micOn = true;
+  var callActive = false;
 
   function setHint(text) {
     if (hintText) hintText.textContent = text;
@@ -36,6 +54,28 @@
 
   function showPill(visible) {
     if (statusPill) statusPill.classList.toggle('is-hidden', !visible);
+  }
+
+  function resetReturn() {
+    callActive = false;
+    remoteAudioTrack = null;
+    remoteStream = new MediaStream();
+    if (returnVideo) {
+      returnVideo.srcObject = remoteStream;
+      returnVideo.muted = false;
+      if (btnSpeaker) btnSpeaker.textContent = '🔊';
+    }
+    if (returnPane) returnPane.classList.add('is-hidden');
+    if (callPill) callPill.classList.add('is-hidden');
+    if (camControls) camControls.classList.add('is-hidden');
+    if (camStage) camStage.classList.remove('has-call');
+  }
+
+  function showReturnPane(visible) {
+    if (!returnPane || !camStage || !camControls) return;
+    returnPane.classList.toggle('is-hidden', !visible);
+    camStage.classList.toggle('has-call', visible);
+    camControls.classList.toggle('is-hidden', !visible);
   }
 
   function hideError() {
@@ -109,6 +149,7 @@
           video.play().catch(function () {});
         }
         setPlaceholder(false);
+        resetReturn();
 
         if (!window.SFU) {
           showError('No se encontró el módulo SFU (JS/sfu.js).');
@@ -117,10 +158,14 @@
 
         var videoTrack = stream.getVideoTracks()[0];
         var audioTrack = stream.getAudioTracks()[0];
+        micOn = true;
 
         controller = SFU.broadcast({
           videoTrack: videoTrack,
           audioTrack: audioTrack,
+          door: DOOR_ID,
+          waitReturn: true,
+          returnTracks: ['video', 'audio'],
           onStatus: function (s) {
             if (s === 'connecting') {
               setHint('Conectando la transmisión…');
@@ -144,6 +189,33 @@
               notifyTelegram(info.viewUrl);
             }
           },
+          onReturnState: function (state) {
+            if (state === 'connected') {
+              callActive = true;
+              showReturnPane(true);
+              if (callPill) callPill.classList.remove('is-hidden');
+            }
+          },
+          onReturnTrack: function (track, kind) {
+            // Cada pista de video de retorno renueva el stream para
+            // no quedarnos mostrando un cuadro congelado tras reconectar.
+            if (kind === 'video') {
+              remoteStream = new MediaStream([track]);
+              if (remoteAudioTrack) remoteStream.addTrack(remoteAudioTrack);
+            } else if (kind === 'audio') {
+              remoteAudioTrack = track;
+              if (remoteStream) remoteStream.addTrack(track);
+            }
+            if (returnVideo && returnVideo.srcObject !== remoteStream) {
+              returnVideo.srcObject = remoteStream;
+              returnVideo.play().catch(function () {});
+            }
+            if (!callActive) {
+              callActive = true;
+              showReturnPane(true);
+              if (callPill) callPill.classList.remove('is-hidden');
+            }
+          },
           onFail: function (err) {
             console.error('SFU broadcast error', err);
             showError('Se perdió la transmisión. Reintentando…');
@@ -164,7 +236,10 @@
       controller = null;
     }
     stopLocalMedia();
+    resetReturn();
     telegramNotified = false;
+    micOn = true;
+    if (btnMic) btnMic.textContent = '🎙️';
   }
 
   function openCamera() {
@@ -183,7 +258,26 @@
     modal.classList.remove('active');
     modal.setAttribute('aria-hidden', 'true');
     showPill(false);
+    resetReturn();
     setHint('Activando la cámara…');
+  }
+
+  function toggleMic() {
+    if (!mediaStream) return;
+    var audio = mediaStream.getAudioTracks()[0];
+    if (!audio) return;
+    micOn = !micOn;
+    audio.enabled = micOn;
+    if (btnMic) {
+      btnMic.textContent = micOn ? '🎙️' : '🔇';
+      btnMic.classList.toggle('is-muted', !micOn);
+    }
+  }
+
+  function toggleSpeaker() {
+    if (!returnVideo) return;
+    returnVideo.muted = !returnVideo.muted;
+    if (btnSpeaker) btnSpeaker.textContent = returnVideo.muted ? '🔇' : '🔊';
   }
 
   if (btnOpen) {
@@ -195,6 +289,14 @@
       e.stopPropagation();
       closeCamera();
     });
+  }
+
+  if (btnMic) {
+    btnMic.addEventListener('click', toggleMic);
+  }
+
+  if (btnSpeaker) {
+    btnSpeaker.addEventListener('click', toggleSpeaker);
   }
 
   document.addEventListener('keydown', function (e) {

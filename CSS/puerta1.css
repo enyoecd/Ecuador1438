@@ -442,9 +442,113 @@ select option[disabled] {
   min-height: 240px;
   background: #000;
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+/* ───────── Cuadros (pantalla dividida en llamada) ───────── */
+.cam-pane {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.camera-modal-stage.has-call .cam-pane {
+  flex-basis: 50%;
+}
+
+.cam-pane-remote {
+  border-top: 2px solid rgb(56 189 248 / 40%);
+}
+
+.cam-pane-label {
+  position: absolute;
+  bottom: 0.55rem;
+  left: 0.6rem;
+  z-index: 15;
+  padding: 0.25rem 0.7rem;
+  border-radius: 9999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(15, 23, 42, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+.cam-call-pill {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.6rem;
+  z-index: 16;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+  background: rgba(12, 33, 51, 0.78);
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  white-space: nowrap;
+}
+
+.cam-call-pill .dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
+  animation: cam-dot-blink 1.4s ease-in-out infinite;
+}
+
+/* ───────── Controles de audio de la llamada ───────── */
+.cam-controls-bar {
+  display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  gap: 0.8rem;
+  padding: 0.7rem 1rem;
+  background: #0d1727;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.cam-ctl {
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(15, 23, 42, 0.6);
+  color: #fff;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.cam-ctl:active { transform: scale(0.94); }
+
+.cam-ctl.is-muted {
+  border-color: rgba(239, 68, 68, 0.6);
+  background: rgba(239, 68, 68, 0.25);
 }
 
 .camera-live-video {
@@ -540,7 +644,8 @@ select option[disabled] {
     transition: none;
   }
 
-  .camera-status-pill .dot {
+  .camera-status-pill .dot,
+  .cam-call-pill .dot {
     animation: none;
   }
 }

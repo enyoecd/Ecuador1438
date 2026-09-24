@@ -154,6 +154,84 @@
   inset: 0;
 }
 
+/* ───────── Viewer: paneles (pantalla dividida) ───────── */
+.sfu-viewer .sfu-stage {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.sfu-pane {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.sfu-viewer .sfu-pane-remote { flex: 1 1 0; }
+.sfu-viewer .sfu-pane-local { flex: 1 1 0; border-top: 2px solid rgb(56 189 248 / 35%); }
+
+.sfu-viewer .sfu-stage.has-call .sfu-pane-remote,
+.sfu-viewer .sfu-stage.has-call .sfu-pane-local {
+  flex-basis: 50%;
+}
+
+.sfu-pane-tag {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  z-index: 15;
+  padding: 0.25rem 0.7rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgb(15 23 42 / 65%);
+  border: 1px solid rgb(255 255 255 / 22%);
+  color: #fff;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.sfu-pane-note {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 14;
+  padding: 0 1rem;
+  font-size: 0.85rem;
+  color: var(--sfu-muted);
+  text-align: center;
+  background: rgb(4 8 15 / 55%);
+  pointer-events: none;
+}
+
+/* ───────── Viewer: píldora EN VIVO arriba ───────── */
+.sfu-viewer .sfu-pill-live {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 16;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.sfu-pill-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--sfu-live);
+  box-shadow: 0 0 8px var(--sfu-live);
+  animation: sfu-blink 1.6s ease-in-out infinite;
+}
+
 /* ───────── Placeholder / portada ───────── */
 .sfu-placeholder,
 .sfu-cover {
@@ -310,6 +388,105 @@
   transform: translateX(-50%);
   z-index: 15;
 }
+
+/* ───────── Viewer: barra de controles inferior ───────── */
+.sfu-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom));
+  background: rgb(13 22 38 / 88%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid rgb(255 255 255 / 10%);
+  z-index: 30;
+}
+
+.sfu-controls-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.sfu-ctl {
+  flex-shrink: 0;
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgb(255 255 255 / 20%);
+  background: rgb(15 23 42 / 60%);
+  color: #fff;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.sfu-ctl:active { transform: scale(0.94); }
+
+.sfu-ctl.is-muted {
+  border-color: rgb(239 68 68 / 60%);
+  background: rgb(239 68 68 / 25%);
+}
+
+.sfu-answer {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 3rem;
+  padding: 0 1.25rem;
+  border: 0;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+  color: #062033;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgb(56 189 248 / 35%);
+  touch-action: manipulation;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.sfu-answer:active { transform: scale(0.96); }
+.sfu-answer:disabled { opacity: 0.6; }
+
+.sfu-answer-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.sfu-hangup {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 3rem;
+  padding: 0 1.15rem;
+  border: 0;
+  border-radius: 1rem;
+  background: var(--sfu-danger);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.sfu-hangup:active { transform: scale(0.96); }
+.sfu-hangup:disabled { opacity: 0.6; }
 
 /* ───────── Preferencia: movimiento reducido ───────── */
 @media (prefers-reduced-motion: reduce) {

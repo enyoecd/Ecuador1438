@@ -190,16 +190,17 @@
   // ─────────────────────────────────────────────────────────────
   // URL de visualización + almacenamiento local
   // ─────────────────────────────────────────────────────────────
-  function buildViewUrl(sessionId, trackNames) {
+  function buildViewUrl(sessionId, trackNames, doorId) {
     var names = trackNames && trackNames.length ? trackNames.join(',') : 'video,audio';
     var path = location.pathname;
     var dir = path.substring(0, path.lastIndexOf('/') + 1);
-    return (
+    var url =
       location.origin +
       dir +
       'view.html?session=' + encodeURIComponent(sessionId) +
-      '&tracks=' + encodeURIComponent(names)
-    );
+      '&tracks=' + encodeURIComponent(names);
+    if (doorId) url += '&door=' + encodeURIComponent(String(doorId));
+    return url;
   }
 
   function setActiveViewUrl(url) {
@@ -224,12 +225,44 @@
         var kind = /audio|mic|sonido/i.test(name) ? 'audio' : 'video';
         return { trackName: name, kind: kind };
       });
-    return { session: session, tracks: tracks };
+    return { session: session, tracks: tracks, door: p.get('door') || p.get('d') || '' };
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Emparejamiento bidireccional (el visor publica su stream de
+  // retorno; la puerta lo consulta para jalarlo hacia su sesión).
+  // ─────────────────────────────────────────────────────────────
+  function registerReturn(doorId, returnSessionId, trackNames) {
+    return api('pair', 'POST', {
+      door: String(doorId),
+      session: String(returnSessionId),
+      tracks: trackNames || ['video', 'audio'],
+    });
+  }
+
+  function getReturnStatus(doorId) {
+    return api('pair-status?door=' + encodeURIComponent(String(doorId)), 'GET');
+  }
+
+  function clearReturn(doorId) {
+    return api('pair-cancel?door=' + encodeURIComponent(String(doorId)), 'DELETE');
   }
 
   // ─────────────────────────────────────────────────────────────
   // PUBLIC — SFU.broadcast (emisor)
-  // options: { videoTrack, audioTrack, onStatus, onLive, onUpdate, onFail }
+  // options: { videoTrack, audioTrack, onStatus, onLive, onUpdate,
+  //            onFail, onReturnTrack, onReturnState,
+  //            door, waitReturn, returnTracks, silent }
+  //
+  //  · silent    → no tocar la URL de vista almacenada (usado por
+  //                el visor cuando publica su stream de retorno).
+  //  · door/waitReturn → la puerta espera a que el visor conteste
+  //                y, en cuanto lo hace, jala las pistas de
+  //                retorno DENTRO de esta misma sesión (renegociación
+  //                sobre este mismo PeerConnection) → WHEP+WHIP
+  //                simultáneo sobre el SFU de Cloudflare.
+  //  · onReturnTrack(track, kind) → pistas devueltas por el visor.
+  //  · onReturnState('connected') → la llamada ya es bidireccional.
   // ─────────────────────────────────────────────────────────────
   function broadcast(options) {
     var opts = options || {};
@@ -239,11 +272,25 @@
     var hasBeenLive = false;
     var attempt = 0;
 
+    var silent = !!opts.silent;
+    var waitReturn = !!opts.waitReturn && !!opts.door;
+    var returnTracks = opts.returnTracks || ['video', 'audio'];
+    var activeReturnSession = null;
+    var returnPolling = false;
+    var subscribing = false;
+    var needsResubscribe = false;
+    var returnPollTimer = null;
+
     var trackEntries = []; // [{name, kind}]
     if (opts.videoTrack) trackEntries.push({ name: 'video', track: opts.videoTrack });
     if (opts.audioTrack) trackEntries.push({ name: 'audio', track: opts.audioTrack });
 
     function status(s) { if (opts.onStatus) opts.onStatus(s); }
+
+    // Enruta las pistas que llegan desde el visor (retorno)
+    function routeTrack(ev) {
+      if (opts.onReturnTrack) opts.onReturnTrack(ev.track, ev.track.kind);
+    }
 
     async function connectOnce() {
       var newSessionId = await createSession();
@@ -251,13 +298,87 @@
       pc = newPc;
       sessionId = newSessionId;
 
+      // Toda pista remota que aparezca aquí es retorno del visor
+      newPc.addEventListener('track', routeTrack);
+
       var entries = trackEntries.map(function (t) {
         var tr = newPc.addTransceiver(t.track, { direction: 'sendonly' });
         return { trackName: t.name, transceiver: tr };
       });
 
       await pushTracks(newPc, newSessionId, entries);
+      resumeReturnSubscription();
       return newSessionId;
+    }
+
+    // ── Espera / suscripción del stream de retorno del visor ──
+    function subscribeReturn(returnSessionId, trackNames) {
+      if (subscribing || !pc || !sessionId || !returnSessionId || !runningRef.running) {
+        return Promise.resolve(false);
+      }
+      subscribing = true;
+      var remoteTracks = (trackNames || returnTracks).map(function (name) {
+        return { location: 'remote', sessionId: returnSessionId, trackName: String(name) };
+      });
+      return pullTracks(pc, sessionId, remoteTracks)
+        .then(function () {
+          activeReturnSession = returnSessionId;
+          subscribing = false;
+          if (opts.onReturnState) opts.onReturnState('connected');
+          return true;
+        })
+        .catch(function (err) {
+          subscribing = false;
+          // Si falla la renegociación volvemos a sondear/reintentar
+          if (opts.onFail) opts.onFail(err);
+          if (activeReturnSession) {
+            if (runningRef.running) {
+              setTimeout(function () {
+                if (runningRef.running) subscribeReturn(activeReturnSession, returnTracks);
+              }, 2000);
+            }
+          } else {
+            startReturnWait();
+          }
+          return false;
+        });
+    }
+
+    function startReturnWait() {
+      if (!waitReturn || returnPolling || subscribing || !runningRef.running) return;
+      returnPolling = true;
+      pollReturn();
+    }
+
+    // Sondeo persistente: detecta tanto la primera contestación como
+    // llamadas nuevas (un nuevo visor responde tras terminar la anterior).
+    function pollReturn() {
+      if (!runningRef.running) { returnPolling = false; return; }
+      if (subscribing) {
+        returnPollTimer = setTimeout(pollReturn, 2000);
+        return;
+      }
+      getReturnStatus(opts.door)
+        .then(function (st) {
+          if (!runningRef.running) { returnPolling = false; return; }
+          if (
+            st && st.active &&
+            (needsResubscribe || st.returnSession !== activeReturnSession)
+          ) {
+            needsResubscribe = false;
+            subscribeReturn(st.returnSession, st.tracks || returnTracks);
+          }
+          returnPollTimer = setTimeout(pollReturn, st && st.active ? 3000 : 2000);
+        })
+        .catch(function () {
+          if (runningRef.running) returnPollTimer = setTimeout(pollReturn, 3000);
+          else returnPolling = false;
+        });
+    }
+
+    // Re-suscita la suscripción de retorno tras una reconexión
+    function resumeReturnSubscription() {
+      startReturnWait();
     }
 
     async function run() {
@@ -265,20 +386,21 @@
         try {
           status('connecting');
           var sid = await connectOnce();
-          var viewUrl = buildViewUrl(sid, trackEntries.map(function (t) { return t.name; }));
-          setActiveViewUrl(viewUrl);
+          var viewUrl = buildViewUrl(sid, trackEntries.map(function (t) { return t.name; }), opts.door);
+          if (!silent) setActiveViewUrl(viewUrl);
 
           var first = !hasBeenLive;
           hasBeenLive = true;
           attempt = 0;
           status('live');
-          if (opts.onLive) opts.onLive({ sessionId: sid, viewUrl: viewUrl, first: first });
-          if (opts.onUpdate) opts.onUpdate({ sessionId: sid, viewUrl: viewUrl });
+          if (opts.onLive) opts.onLive({ sessionId: sid, viewUrl: silent ? '' : viewUrl, first: first });
+          if (opts.onUpdate && !silent) opts.onUpdate({ sessionId: sid, viewUrl: viewUrl });
 
           // Esperar a que se caiga la conexión (o que nos detengan)
           await waitForConnectionToEnd(pc, runningRef);
           if (!runningRef.running) break;
 
+          needsResubscribe = true;
           status('reconnecting');
           attempt++;
           await backoff(attempt);
@@ -286,6 +408,7 @@
           if (!runningRef.running) break;
           if (opts.onFail) opts.onFail(err);
           if (pc) { try { pc.close(); } catch (e) {} pc = null; }
+          needsResubscribe = true;
           status('reconnecting');
           attempt++;
           await backoff(attempt);
@@ -300,8 +423,10 @@
       get sessionId() { return sessionId; },
       stop: function () {
         runningRef.running = false;
+        if (returnPollTimer) { clearTimeout(returnPollTimer); returnPollTimer = null; }
         if (pc) { try { pc.close(); } catch (e) {} pc = null; }
-        clearActiveViewUrl();
+        if (waitReturn && opts.door) clearReturn(opts.door).catch(function () {});
+        if (!silent) clearActiveViewUrl();
         status('stopped');
       },
       isRunning: function () { return runningRef.running; },
@@ -408,6 +533,9 @@
     getActiveViewUrl: getActiveViewUrl,
     clearActiveViewUrl: clearActiveViewUrl,
     parseViewParams: parseViewParams,
+    registerReturn: registerReturn,
+    getReturnStatus: getReturnStatus,
+    clearReturn: clearReturn,
     broadcast: broadcast,
     watch: watch,
     notifyTelegram: notifyTelegram,

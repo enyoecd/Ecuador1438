@@ -11,22 +11,57 @@
 
 <body class="sfu-body sfu-viewer">
   <main id="stage" class="sfu-stage">
-    <video id="remote-video" class="sfu-video" autoplay playsinline muted></video>
+    <!-- Cuadro superior: la cámara de la puerta (remoto) -->
+    <div id="remote-pane" class="sfu-pane sfu-pane-remote">
+      <video id="remote-video" class="sfu-video" autoplay playsinline muted></video>
 
-    <!-- Portada de espera -->
-    <div id="cover" class="sfu-cover">
-      <div id="spinner" class="sfu-spinner"></div>
-      <div class="sfu-cover-icon">🎦</div>
-      <p id="cover-text">Conectando…</p>
+      <!-- Portada de espera -->
+      <div id="cover" class="sfu-cover">
+        <div id="spinner" class="sfu-spinner"></div>
+        <div class="sfu-cover-icon">🎦</div>
+        <p id="cover-text">Conectando…</p>
+      </div>
+
+      <!-- Píldora EN VIVO (arriba, centrada) -->
+      <div id="live-pill" class="sfu-pill sfu-pill-live is-hidden">
+        <span class="sfu-pill-dot" aria-hidden="true"></span>
+        <span>En vivo</span>
+      </div>
     </div>
 
-    <!-- Píldora EN VIVO -->
-    <div id="live-pill" class="sfu-pill sfu-pill-live is-hidden">● En vivo</div>
-
-    <!-- Controles flotantes -->
-    <button id="btn-sound" class="sfu-sound-btn" type="button" aria-label="Activar o silenciar el audio">🔇</button>
-    <button id="btn-full" class="sfu-full-btn" type="button" aria-label="Pantalla completa">⛶</button>
+    <!-- Cuadro inferior: tu propia cámara (local, al contestar) -->
+    <div id="local-pane" class="sfu-pane sfu-pane-local is-hidden">
+      <video id="local-video" class="sfu-video" autoplay playsinline muted></video>
+      <span class="sfu-pane-tag">Tú</span>
+      <span id="local-connecting" class="sfu-pane-note">Activando tu cámara…</span>
+    </div>
   </main>
+
+  <!-- Controles inferiores -->
+  <div id="controls" class="sfu-controls">
+    <button id="btn-sound" class="sfu-ctl" type="button"
+      aria-label="Activar o silenciar el audio de la puerta">🔇</button>
+
+    <!-- Contestación de la llamada (visor) -->
+    <div class="sfu-controls-center">
+      <button id="btn-answer" class="sfu-answer" type="button" aria-label="Contestar con tu cámara">
+        <svg class="sfu-answer-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M4 6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h5l7 3.5V2.5L9 6H4z" />
+          <circle cx="17" cy="12" r="2.6" />
+          <path d="M18 8.2a4.2 4.2 0 0 1 0 7.6" stroke="#fff" stroke-width="1.6" fill="none"
+            stroke-linecap="round" />
+        </svg>
+        Contestar
+      </button>
+
+      <button id="btn-mic" class="sfu-ctl is-hidden" type="button"
+        aria-label="Silenciar o activar tu micrófono">🎙️</button>
+      <button id="btn-hangup" class="sfu-hangup is-hidden" type="button"
+        aria-label="Finalizar la llamada">Finalizar</button>
+    </div>
+
+    <button id="btn-full" class="sfu-ctl" type="button" aria-label="Pantalla completa">⛶</button>
+  </div>
 
   <div id="error-box" class="sfu-error is-hidden"></div>
 
@@ -36,16 +71,27 @@
       'use strict';
 
       var stage = document.getElementById('stage');
+      var localPane = document.getElementById('local-pane');
       var video = document.getElementById('remote-video');
+      var localVideo = document.getElementById('local-video');
+      var localConnecting = document.getElementById('local-connecting');
       var cover = document.getElementById('cover');
       var coverText = document.getElementById('cover-text');
       var spinner = document.getElementById('spinner');
       var livePill = document.getElementById('live-pill');
       var soundBtn = document.getElementById('btn-sound');
+      var answerBtn = document.getElementById('btn-answer');
+      var micBtn = document.getElementById('btn-mic');
+      var hangupBtn = document.getElementById('btn-hangup');
       var fullBtn = document.getElementById('btn-full');
       var errorBox = document.getElementById('error-box');
 
-      var controller = null;
+      var controller = null;   // SFU.watch (recibe la cámara de la puerta)
+      var returnCtrl = null;   // SFU.broadcast (tu cámara hacia la puerta)
+      var localStream = null;  // cámara/mic local del visor
+      var micOn = true;
+      var answering = false;
+
       var params = SFU.parseViewParams(location.search);
 
       function setCoverText(text, showSpinner) {
@@ -58,6 +104,11 @@
         errorBox.textContent = msg;
         errorBox.classList.remove('is-hidden');
         setCoverText(msg, false);
+      }
+
+      function hideError() {
+        errorBox.classList.add('is-hidden');
+        errorBox.textContent = '';
       }
 
       function setStatus(s) {
@@ -79,6 +130,123 @@
         }
       }
 
+      function setControlsCallMode(active) {
+        answerBtn.classList.toggle('is-hidden', active);
+        micBtn.classList.toggle('is-hidden', !active);
+        hangupBtn.classList.toggle('is-hidden', !active);
+        stage.classList.toggle('has-call', active);
+      }
+
+      function toggleMic() {
+        if (!localStream) return;
+        var audio = localStream.getAudioTracks()[0];
+        if (!audio) return;
+        micOn = !micOn;
+        audio.enabled = micOn;
+        micBtn.textContent = micOn ? '🎙️' : '🔇';
+        micBtn.classList.toggle('is-muted', !micOn);
+      }
+
+      function requestLocalMedia() {
+        return navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: {
+            facingMode: 'user',
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        });
+      }
+
+      function startAnswer() {
+        if (answering) return;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          showError('Tu navegador no permite usar la cámara. Necesitas una conexión HTTPS.');
+          return;
+        }
+        if (!params.session) return;
+
+        answering = true;
+        hideError();
+        answerBtn.disabled = true;
+
+        requestLocalMedia()
+          .then(function (stream) {
+            localStream = stream;
+            localVideo.srcObject = stream;
+            localVideo.play().catch(function () {});
+            localConnecting.classList.add('is-hidden');
+            localPane.classList.remove('is-hidden');
+            setControlsCallMode(true);
+            answerBtn.disabled = false;
+            localVideo.style.visibility = 'visible';
+
+            var videoTrack = stream.getVideoTracks()[0];
+            var audioTrack = stream.getAudioTracks()[0];
+
+            // Publica tu cámara/mic hacia el SFU (WHIP) en una sesión
+            // de retorno independiente; la puerta la jala (WHEP).
+            returnCtrl = SFU.broadcast({
+              videoTrack: videoTrack,
+              audioTrack: audioTrack,
+              door: params.door || '',
+              silent: true,
+              waitReturn: false,
+              onStatus: function (s) {
+                if (s === 'connecting') {
+                  localConnecting.textContent = 'Enviando tu respuesta…';
+                  localConnecting.classList.remove('is-hidden');
+                } else if (s === 'live') {
+                  localConnecting.textContent = '';
+                  localConnecting.classList.add('is-hidden');
+                } else if (s === 'reconnecting') {
+                  localConnecting.textContent = 'Reconectando tu respuesta…';
+                  localConnecting.classList.remove('is-hidden');
+                }
+              },
+              onLive: function (info) {
+                if (!info.sessionId || !params.door) return;
+                // Registra el emparejamiento para que la puerta reciba tu stream
+                SFU.registerReturn(params.door, info.sessionId, ['video', 'audio'])
+                  .catch(function (err) {
+                    console.warn('No se pudo registrar el retorno de la llamada', err);
+                  });
+              },
+              onFail: function (err) {
+                console.error('SFU return broadcast error', err);
+              },
+            });
+          })
+          .catch(function (err) {
+            console.error('Error de permisos/media local', err);
+            answering = false;
+            answerBtn.disabled = false;
+            showError('No se pudo activar tu cámara. Revisa los permisos del navegador.');
+          });
+      }
+
+      function stopAnswer() {
+        answering = false;
+        if (returnCtrl) {
+          returnCtrl.stop();
+          returnCtrl = null;
+        }
+        if (params.door) {
+          // Libera el emparejamiento: la puerta deja de esperar tu retorno
+          SFU.clearReturn(params.door).catch(function () {});
+        }
+        if (localStream) {
+          localStream.getTracks().forEach(function (t) { t.stop(); });
+          localStream = null;
+        }
+        localVideo.srcObject = null;
+        localPane.classList.add('is-hidden');
+        setControlsCallMode(false);
+        micBtn.textContent = '🎙️';
+        micBtn.classList.remove('is-muted');
+        micOn = true;
+      }
+
       // Enlace sin sesión → inválido
       if (!params.session) {
         showError('Enlace no válido. Falta el identificador de la transmisión.');
@@ -96,11 +264,15 @@
         },
       });
 
-      // Control de sonido (desbloqueo de autoplay por gesto del usuario)
+      // Audio de la puerta (activar/silenciar)
       soundBtn.addEventListener('click', function () {
         video.muted = !video.muted;
         soundBtn.textContent = video.muted ? '🔇' : '🔊';
       });
+
+      answerBtn.addEventListener('click', startAnswer);
+      micBtn.addEventListener('click', toggleMic);
+      hangupBtn.addEventListener('click', stopAnswer);
 
       fullBtn.addEventListener('click', function () {
         if (stage.requestFullscreen) {
@@ -111,6 +283,7 @@
 
       window.addEventListener('beforeunload', function () {
         if (controller) controller.stop();
+        stopAnswer();
       });
     })();
   </script>

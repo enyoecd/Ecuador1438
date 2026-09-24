@@ -182,16 +182,38 @@
     <div class="camera-modal-card">
       <button id="btn-close-camera" class="camera-modal-close" type="button" aria-label="Cerrar cámara">&times;</button>
 
-      <div class="camera-modal-stage">
-        <video id="cam-live-video" class="camera-live-video" autoplay muted playsinline></video>
-        <div id="cam-live-placeholder" class="camera-live-placeholder">
-          <div class="sfu-spinner"></div>
-          <p id="cam-hint-text" class="camera-live-hint">Activando la cámara…</p>
+      <div id="cam-stage" class="camera-modal-stage">
+        <!-- Cuadro superior: cámara local de la puerta -->
+        <div class="cam-pane cam-pane-local">
+          <video id="cam-live-video" class="camera-live-video" autoplay muted playsinline></video>
+          <div id="cam-live-placeholder" class="camera-live-placeholder">
+            <div class="sfu-spinner"></div>
+            <p id="cam-hint-text" class="camera-live-hint">Activando la cámara…</p>
+          </div>
+          <div id="cam-status-pill" class="camera-status-pill is-hidden">
+            <span class="dot" aria-hidden="true"></span>
+            EN VIVO
+          </div>
+          <span class="cam-pane-label cam-pane-label-local">Puerta</span>
         </div>
-        <div id="cam-status-pill" class="camera-status-pill is-hidden">
-          <span class="dot" aria-hidden="true"></span>
-          EN VIVO
+
+        <!-- Cuadro inferior: el teléfono del visor que contestó (remoto) -->
+        <div id="cam-return-pane" class="cam-pane cam-pane-remote is-hidden">
+          <video id="cam-return-video" class="camera-live-video" autoplay playsinline></video>
+          <div id="cam-call-pill" class="cam-call-pill is-hidden">
+            <span class="dot" aria-hidden="true"></span>
+            EN LLAMADA
+          </div>
+          <span class="cam-pane-label cam-pane-label-remote">Visitante</span>
         </div>
+      </div>
+
+      <!-- Controles de audio de la llamada -->
+      <div id="cam-controls" class="cam-controls-bar is-hidden">
+        <button id="btn-cam-speaker" class="cam-ctl" type="button"
+          aria-label="Activar o silenciar el audio del visitante">🔊</button>
+        <button id="btn-cam-mic" class="cam-ctl" type="button"
+          aria-label="Silenciar o activar el micrófono de la puerta">🎙️</button>
       </div>
 
       <div id="cam-error" class="sfu-error is-hidden"></div>

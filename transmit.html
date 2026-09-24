@@ -166,6 +166,7 @@
             controller = SFU.broadcast({
               videoTrack: videoTrack,
               audioTrack: audioTrack,
+              door: 'puerta' + door,
               onStatus: function (s) {
                 if (s === 'connecting') setStatus('Conectando a la transmisión…');
                 else if (s === 'live') setStatus('En vivo', 'live');
