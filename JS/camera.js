@@ -27,6 +27,7 @@
   var camStage = document.getElementById('cam-stage');
   var returnPane = document.getElementById('cam-return-pane');
   var returnVideo = document.getElementById('cam-return-video');
+  var returnPlaceholder = document.getElementById('cam-return-placeholder');
   var callPill = document.getElementById('cam-call-pill');
   var camControls = document.getElementById('cam-controls');
   var btnSpeaker = document.getElementById('btn-cam-speaker');
@@ -43,6 +44,10 @@
   var telegramNotified = false;
   var micOn = true;
   var callActive = false;
+  var returnFrameShown = false;
+  var onReturnPlaying = null;
+  var returnFrameFallback = null;
+  var gestureRetryAttached = false;
 
   function setHint(text) {
     if (hintText) hintText.textContent = text;
@@ -60,6 +65,12 @@
     callActive = false;
     remoteAudioTrack = null;
     remoteStream = new MediaStream();
+    returnFrameShown = false;
+    if (returnFrameFallback) { clearTimeout(returnFrameFallback); returnFrameFallback = null; }
+    if (onReturnPlaying) {
+      if (returnVideo) returnVideo.removeEventListener('playing', onReturnPlaying);
+      onReturnPlaying = null;
+    }
     if (returnVideo) {
       returnVideo.srcObject = remoteStream;
       returnVideo.muted = false;
@@ -67,6 +78,7 @@
     }
     if (returnPane) returnPane.classList.add('is-hidden');
     if (callPill) callPill.classList.add('is-hidden');
+    if (returnPlaceholder) returnPlaceholder.classList.add('is-hidden');
     if (camControls) camControls.classList.add('is-hidden');
     if (camStage) camStage.classList.remove('has-call');
   }
@@ -76,6 +88,66 @@
     returnPane.classList.toggle('is-hidden', !visible);
     camStage.classList.toggle('has-call', visible);
     camControls.classList.toggle('is-hidden', !visible);
+    if (visible && returnPlaceholder) returnPlaceholder.classList.remove('is-hidden');
+  }
+
+  // ── Reproducción robusta del video del visitante ─────────
+  // El <video> de retorno no está silenciado, así que el primer
+  // play() puede bloquearse por la política de autoplay. Mostramos
+  // el placeholder hasta que el primer fotograma se renderiza de
+  // verdad y reintentamos play() con el próximo gesto si falla.
+  function onReturnFirstFrame() {
+    if (returnFrameShown) return;
+    returnFrameShown = true;
+    if (returnFrameFallback) { clearTimeout(returnFrameFallback); returnFrameFallback = null; }
+    if (returnPlaceholder) returnPlaceholder.classList.add('is-hidden');
+    if (callPill) callPill.classList.remove('is-hidden');
+  }
+
+  function scheduleReturnFrameFallback() {
+    if (returnFrameShown) return;
+    if (returnFrameFallback) clearTimeout(returnFrameFallback);
+    returnFrameFallback = setTimeout(onReturnFirstFrame, 1200);
+  }
+
+  function attachGestureRetry() {
+    if (gestureRetryAttached) return;
+    gestureRetryAttached = true;
+    document.addEventListener(
+      'pointerdown',
+      function () {
+        gestureRetryAttached = false;
+        playReturnVideo();
+      },
+      { once: true }
+    );
+  }
+
+  function playReturnVideo() {
+    if (!returnVideo || !returnVideo.srcObject) return;
+    var p = returnVideo.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(function () {
+        if (returnPlaceholder) returnPlaceholder.classList.remove('is-hidden');
+        attachGestureRetry();
+      });
+    }
+  }
+
+  function attachReturnStream(stream) {
+    if (!returnVideo) return;
+    if (onReturnPlaying) {
+      returnVideo.removeEventListener('playing', onReturnPlaying);
+      onReturnPlaying = null;
+    }
+    if (returnVideo.srcObject !== stream) {
+      returnVideo.srcObject = stream;
+      if (returnPlaceholder) returnPlaceholder.classList.remove('is-hidden');
+      scheduleReturnFrameFallback();
+    }
+    onReturnPlaying = onReturnFirstFrame;
+    returnVideo.addEventListener('playing', onReturnPlaying);
+    playReturnVideo();
   }
 
   function hideError() {
@@ -193,7 +265,6 @@
             if (state === 'connected') {
               callActive = true;
               showReturnPane(true);
-              if (callPill) callPill.classList.remove('is-hidden');
             }
           },
           onReturnTrack: function (track, kind) {
@@ -206,15 +277,11 @@
               remoteAudioTrack = track;
               if (remoteStream) remoteStream.addTrack(track);
             }
-            if (returnVideo && returnVideo.srcObject !== remoteStream) {
-              returnVideo.srcObject = remoteStream;
-              returnVideo.play().catch(function () {});
-            }
             if (!callActive) {
               callActive = true;
               showReturnPane(true);
-              if (callPill) callPill.classList.remove('is-hidden');
             }
+            attachReturnStream(remoteStream);
           },
           onFail: function (err) {
             console.error('SFU broadcast error', err);
