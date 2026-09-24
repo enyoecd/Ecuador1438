@@ -220,6 +220,15 @@
     formData.append('tipo', 'timbre');
     formData.append('puerta', door);
 
+    // Si la cámara está transmitiendo, adjuntar el enlace de visualización
+    // (lo guarda SFU en localStorage cuando se inicia la transmisión en vivo)
+    try {
+      var viewUrl = localStorage.getItem('ecuador1438_sfu_view_url');
+      if (viewUrl) {
+        formData.append('viewUrl', viewUrl);
+      }
+    } catch (e) {}
+
     try {
       var response = await fetch(backendUrl, {
         method: 'POST',

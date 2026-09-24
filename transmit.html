@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1626" />
+  <title>Transmisión en vivo — Puerta 1 · Ecuador 1438</title>
+  <link rel="stylesheet" href="CSS/sfu.css" />
+</head>
+
+<body class="sfu-body">
+  <!-- Barra superior -->
+  <header class="sfu-topbar">
+    <button id="btn-back" class="sfu-btn sfu-btn-ghost" type="button">‹ Volver</button>
+    <div class="sfu-title">📹 Cámara — Puerta <span id="door-badge">1</span></div>
+    <button id="btn-stop" class="sfu-btn sfu-btn-danger" type="button" disabled>Finalizar</button>
+  </header>
+
+  <!-- Estado -->
+  <div id="status-pill" class="sfu-pill">En espera</div>
+
+  <!-- Vista previa local -->
+  <main class="sfu-stage">
+    <video id="local-video" class="sfu-video" autoplay muted playsinline></video>
+    <div id="placeholder" class="sfu-placeholder">
+      <div class="sfu-cover-icon">📷</div>
+      <p class="sfu-hint">La cámara se verá aquí.<br />Activa la transmisión para comenzar.</p>
+    </div>
+  </main>
+
+  <!-- Panel de inicio -->
+  <section id="start-panel" class="sfu-panel">
+    <button id="btn-start" class="sfu-btn sfu-btn-primary" type="button">🎥 Iniciar transmisión</button>
+    <p class="sfu-hint">Podrás silenciar la cámara o el micrófono en cualquier momento.</p>
+  </section>
+
+  <!-- Panel en vivo -->
+  <section id="live-panel" class="sfu-panel is-hidden">
+    <label for="view-url">Enlace de visualización (cámara en vivo)</label>
+    <div class="sfu-link-row">
+      <input id="view-url" type="text" readonly aria-label="Enlace de visualización" />
+      <button id="btn-copy" type="button">Copiar</button>
+    </div>
+
+    <label class="sfu-check">
+      <input id="auto-notify" type="checkbox" checked />
+      Avisar por Telegram al iniciar
+    </label>
+
+    <button id="btn-notify" class="sfu-btn sfu-btn-secondary" type="button">📨 Enviar enlace por Telegram</button>
+    <p id="notify-msg" class="sfu-note"></p>
+  </section>
+
+  <!-- Errores -->
+  <div id="error-box" class="sfu-error is-hidden"></div>
+
+  <script src="JS/sfu.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      var door = new URLSearchParams(location.search).get('puerta') || '1';
+      document.getElementById('door-badge').textContent = door;
+
+      var btnStart = document.getElementById('btn-start');
+      var btnStop = document.getElementById('btn-stop');
+      var btnBack = document.getElementById('btn-back');
+      var btnCopy = document.getElementById('btn-copy');
+      var btnNotify = document.getElementById('btn-notify');
+      var autoNotify = document.getElementById('auto-notify');
+      var viewUrlInput = document.getElementById('view-url');
+      var notifyMsg = document.getElementById('notify-msg');
+      var errorBox = document.getElementById('error-box');
+      var statusPill = document.getElementById('status-pill');
+      var localVideo = document.getElementById('local-video');
+      var placeholder = document.getElementById('placeholder');
+      var startPanel = document.getElementById('start-panel');
+      var livePanel = document.getElementById('live-panel');
+
+      var mediaStream = null;
+      var controller = null;
+      var currentViewUrl = '';
+
+      function setStatus(text, kind) {
+        statusPill.textContent = text;
+        statusPill.className = 'sfu-pill' + (kind ? ' sfu-pill-' + kind : '');
+      }
+
+      function showError(msg) {
+        errorBox.textContent = msg;
+        errorBox.classList.remove('is-hidden');
+      }
+
+      function hideError() {
+        errorBox.classList.add('is-hidden');
+        errorBox.textContent = '';
+      }
+
+      function setNote(msg, ok) {
+        notifyMsg.textContent = msg;
+        notifyMsg.className = 'sfu-note' + (ok ? ' ok' : ' err');
+      }
+
+      function showLivePanel(url) {
+        currentViewUrl = url;
+        viewUrlInput.value = url;
+        startPanel.classList.add('is-hidden');
+        livePanel.classList.remove('is-hidden');
+        btnStop.disabled = false;
+      }
+
+      function resetUI() {
+        startPanel.classList.remove('is-hidden');
+        livePanel.classList.add('is-hidden');
+        btnStop.disabled = true;
+        setNote('', false);
+      }
+
+      function stopLocalMedia() {
+        if (mediaStream) {
+          mediaStream.getTracks().forEach(function (t) { t.stop(); });
+          mediaStream = null;
+        }
+        localVideo.srcObject = null;
+      }
+
+      function requestMedia() {
+        return navigator.mediaDevices
+          .getUserMedia({
+            audio: true,
+            video: {
+              facingMode: 'environment',
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+          })
+          .catch(function () {
+            // Si el micrófono no está disponible o se rechaza,
+            // intentar difundir solo la cámara.
+            return navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+              },
+            });
+          });
+      }
+
+      function startTransmission() {
+        hideError();
+        setStatus('Solicitando permisos…');
+        btnStart.disabled = true;
+        setNote('', false);
+
+        requestMedia()
+          .then(function (stream) {
+            mediaStream = stream;
+            localVideo.srcObject = stream;
+            placeholder.classList.add('is-hidden');
+
+            var videoTrack = stream.getVideoTracks()[0];
+            var audioTrack = stream.getAudioTracks()[0];
+
+            controller = SFU.broadcast({
+              videoTrack: videoTrack,
+              audioTrack: audioTrack,
+              onStatus: function (s) {
+                if (s === 'connecting') setStatus('Conectando a la transmisión…');
+                else if (s === 'live') setStatus('En vivo', 'live');
+                else if (s === 'reconnecting') setStatus('Reconectando…', 'danger');
+                else if (s === 'stopped') setStatus('Transmisión finalizada');
+              },
+              onLive: function (info) {
+                showLivePanel(info.viewUrl);
+                setStatus('En vivo', 'live');
+                if (info.first && autoNotify.checked) {
+                  notifyTelegram(info.viewUrl);
+                }
+              },
+              onUpdate: function (info) {
+                showLivePanel(info.viewUrl);
+              },
+              onFail: function (err) {
+                console.error('SFU broadcast error', err);
+              },
+            });
+          })
+          .catch(function (err) {
+            console.error('Error de permisos/media', err);
+            btnStart.disabled = false;
+            placeholder.classList.remove('is-hidden');
+            showError(
+              'No se pudieron obtener cámara y micrófono. Revisa los permisos del navegador.'
+            );
+            setStatus('En espera');
+          });
+      }
+
+      function stopTransmission() {
+        if (controller) {
+          controller.stop();
+          controller = null;
+        }
+        stopLocalMedia();
+        placeholder.classList.remove('is-hidden');
+        resetUI();
+        setStatus('Transmisión finalizada');
+      }
+
+      function notifyTelegram(url) {
+        SFU.notifyTelegram(url, door)
+          .then(function (data) {
+            if (data && data.success) {
+              setNote('✅ Enlace enviado a Telegram', true);
+            } else {
+              setNote('⚠️ No se pudo enviar a Telegram', false);
+            }
+          })
+          .catch(function () {
+            setNote('⚠️ No se pudo enviar a Telegram', false);
+          });
+      }
+
+      btnStart.addEventListener('click', startTransmission);
+      btnStop.addEventListener('click', stopTransmission);
+      btnBack.addEventListener('click', function () {
+        if (history.length > 1) history.back();
+        else location.href = 'Puerta1.html';
+      });
+
+      btnCopy.addEventListener('click', function () {
+        if (!currentViewUrl) return;
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(currentViewUrl).then(function () {
+            setNote('✅ Enlace copiado', true);
+          });
+        } else {
+          viewUrlInput.select();
+          document.execCommand('copy');
+          setNote('✅ Enlace copiado', true);
+        }
+      });
+
+      btnNotify.addEventListener('click', function () {
+        if (!currentViewUrl) return;
+        setNote('Enviando…', false);
+        notifyTelegram(currentViewUrl);
+      });
+
+      window.addEventListener('beforeunload', function () {
+        if (controller) controller.stop();
+        stopLocalMedia();
+      });
+    })();
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1626" />
+  <title>Cámara en vivo · Ecuador 1438</title>
+  <link rel="stylesheet" href="CSS/sfu.css" />
+</head>
+
+<body class="sfu-body sfu-viewer">
+  <main id="stage" class="sfu-stage">
+    <video id="remote-video" class="sfu-video" autoplay playsinline muted></video>
+
+    <!-- Portada de espera -->
+    <div id="cover" class="sfu-cover">
+      <div id="spinner" class="sfu-spinner"></div>
+      <div class="sfu-cover-icon">🎦</div>
+      <p id="cover-text">Conectando…</p>
+    </div>
+
+    <!-- Píldora EN VIVO -->
+    <div id="live-pill" class="sfu-pill sfu-pill-live is-hidden">● En vivo</div>
+
+    <!-- Controles flotantes -->
+    <button id="btn-sound" class="sfu-sound-btn" type="button" aria-label="Activar o silenciar el audio">🔇</button>
+    <button id="btn-full" class="sfu-full-btn" type="button" aria-label="Pantalla completa">⛶</button>
+  </main>
+
+  <div id="error-box" class="sfu-error is-hidden"></div>
+
+  <script src="JS/sfu.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      var stage = document.getElementById('stage');
+      var video = document.getElementById('remote-video');
+      var cover = document.getElementById('cover');
+      var coverText = document.getElementById('cover-text');
+      var spinner = document.getElementById('spinner');
+      var livePill = document.getElementById('live-pill');
+      var soundBtn = document.getElementById('btn-sound');
+      var fullBtn = document.getElementById('btn-full');
+      var errorBox = document.getElementById('error-box');
+
+      var controller = null;
+      var params = SFU.parseViewParams(location.search);
+
+      function setCoverText(text, showSpinner) {
+        coverText.textContent = text;
+        if (showSpinner === false) spinner.classList.add('is-hidden');
+        else spinner.classList.remove('is-hidden');
+      }
+
+      function showError(msg) {
+        errorBox.textContent = msg;
+        errorBox.classList.remove('is-hidden');
+        setCoverText(msg, false);
+      }
+
+      function setStatus(s) {
+        if (s === 'live') {
+          cover.classList.add('is-hidden');
+          livePill.classList.remove('is-hidden');
+        } else if (s === 'connecting') {
+          cover.classList.remove('is-hidden');
+          livePill.classList.add('is-hidden');
+          setCoverText('Conectando…', true);
+        } else if (s === 'waiting') {
+          cover.classList.remove('is-hidden');
+          livePill.classList.add('is-hidden');
+          setCoverText('Esperando que se encienda la cámara…', true);
+        } else if (s === 'reconnecting') {
+          cover.classList.remove('is-hidden');
+          livePill.classList.add('is-hidden');
+          setCoverText('Conexión perdida. Reconectando…', true);
+        }
+      }
+
+      // Enlace sin sesión → inválido
+      if (!params.session) {
+        showError('Enlace no válido. Falta el identificador de la transmisión.');
+        return;
+      }
+
+      controller = SFU.watch({
+        session: params.session,
+        tracks: params.tracks,
+        videoEl: video,
+        onStatus: setStatus,
+        onLive: function () {},
+        onFail: function (err) {
+          console.error('SFU watch error', err);
+        },
+      });
+
+      // Control de sonido (desbloqueo de autoplay por gesto del usuario)
+      soundBtn.addEventListener('click', function () {
+        video.muted = !video.muted;
+        soundBtn.textContent = video.muted ? '🔇' : '🔊';
+      });
+
+      fullBtn.addEventListener('click', function () {
+        if (stage.requestFullscreen) {
+          if (document.fullscreenElement) document.exitFullscreen();
+          else stage.requestFullscreen().catch(function () {});
+        }
+      });
+
+      window.addEventListener('beforeunload', function () {
+        if (controller) controller.stop();
+      });
+    })();
+  </script>
+</body>
+
+</html>

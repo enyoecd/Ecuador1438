@@ -1,0 +1,320 @@
+/* ═══════════════════════════════════════════════════
+   sfu.css — Estilos del citófono con videollamada
+   Ecuador 1438 (transmit.html y view.html)
+   Paleta consistente con puerta1.css
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  --sfu-bg-top: #0d1626;
+  --sfu-bg-bottom: #1a2a3a;
+  --sfu-card: #2d3748;
+  --sfu-accent: #38bdf8;
+  --sfu-live: #22c55e;
+  --sfu-danger: #ef4444;
+  --sfu-text: #ffffff;
+  --sfu-muted: #a0aec0;
+}
+
+.sfu-body {
+  margin: 0;
+  min-height: 100dvh;
+  background: linear-gradient(160deg, var(--sfu-bg-top), var(--sfu-bg-bottom));
+  color: var(--sfu-text);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  flex-direction: column;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.is-hidden { display: none !important; }
+
+/* ───────── Barra superior ───────── */
+.sfu-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgb(13 22 38 / 85%);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgb(255 255 255 / 8%);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.sfu-title {
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  text-align: center;
+  color: var(--sfu-accent);
+}
+
+/* ───────── Botones ───────── */
+.sfu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 0;
+  border-radius: 0.75rem;
+  padding: 0.6rem 1rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease, background-color 0.15s ease;
+  color: var(--sfu-text);
+  touch-action: manipulation;
+}
+
+.sfu-btn:active { transform: scale(0.96); }
+.sfu-btn:disabled { opacity: 0.55; cursor: default; transform: none; }
+
+.sfu-btn-ghost {
+  background: rgb(255 255 255 / 10%);
+  border: 1px solid rgb(255 255 255 / 18%);
+}
+
+.sfu-btn-danger {
+  background: var(--sfu-danger);
+  color: #fff;
+}
+
+.sfu-btn-primary {
+  background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+  color: #062033;
+  font-size: 1.05rem;
+  padding: 0.9rem 1.5rem;
+  border-radius: 1rem;
+  width: 100%;
+}
+
+.sfu-btn-secondary {
+  background: var(--sfu-accent);
+  color: #062033;
+}
+
+.sfu-btn-lg { padding: 0.9rem 1.5rem; font-size: 1rem; }
+
+/* ───────── Píldora de estado ───────── */
+.sfu-pill {
+  align-self: center;
+  margin: 0.75rem auto 0;
+  padding: 0.35rem 1.1rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgb(255 255 255 / 12%);
+  border: 1px solid rgb(255 255 255 / 18%);
+}
+
+.sfu-pill-live {
+  background: rgb(34 197 94 / 18%);
+  color: var(--sfu-live);
+  border-color: rgb(34 197 94 / 55%);
+  animation: sfu-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes sfu-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.sfu-pill-danger {
+  background: rgb(239 68 68 / 18%);
+  color: #fca5a5;
+  border-color: rgb(239 68 68 / 55%);
+}
+
+/* ───────── Escenario de video ───────── */
+.sfu-stage {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a121f url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%231f3346' stroke-width='1'%3E%3Cpath d='M0 20h40M20 0v40'/%3E%3C/g%3E%3C/svg%3E");
+  overflow: hidden;
+}
+
+.sfu-video {
+  width: 100%;
+  height: 100%;
+  max-height: 52dvh;
+  object-fit: contain;
+  background: #000;
+}
+
+.sfu-viewer .sfu-video {
+  max-height: none;
+  position: absolute;
+  inset: 0;
+}
+
+/* ───────── Placeholder / portada ───────── */
+.sfu-placeholder,
+.sfu-cover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  text-align: center;
+  padding: 1rem;
+  color: var(--sfu-muted);
+  background: rgb(10 18 31 / 60%);
+}
+
+.sfu-cover-icon { font-size: 2.6rem; opacity: 0.85; }
+
+.sfu-spinner {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 9999px;
+  border: 3px solid rgb(56 189 248 / 25%);
+  border-top-color: var(--sfu-accent);
+  animation: sfu-spin 0.9s linear infinite;
+}
+
+@keyframes sfu-spin { to { transform: rotate(360deg); } }
+
+/* ───────── Paneles / tarjetas ───────── */
+.sfu-panel {
+  background: var(--sfu-card);
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  margin: 0.9rem auto 1.25rem;
+  width: calc(100% - 2rem);
+  max-width: 30rem;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 30%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.sfu-panel label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--sfu-muted);
+}
+
+.sfu-link-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sfu-link-row input {
+  flex: 1;
+  min-width: 0;
+  border-radius: 0.6rem;
+  border: 1px solid rgb(255 255 255 / 15%);
+  background: #1f2937;
+  color: var(--sfu-text);
+  padding: 0.6rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.sfu-link-row button {
+  border: 0;
+  border-radius: 0.6rem;
+  background: var(--sfu-accent);
+  color: #062033;
+  font-weight: 700;
+  padding: 0 0.9rem;
+  cursor: pointer;
+}
+
+.sfu-hint {
+  font-size: 0.8rem;
+  color: var(--sfu-muted);
+  text-align: center;
+  margin: 0;
+}
+
+.sfu-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--sfu-text);
+  cursor: pointer;
+}
+
+.sfu-note {
+  font-size: 0.8rem;
+  margin: 0;
+  min-height: 1.1em;
+  text-align: center;
+}
+
+.sfu-note.ok { color: var(--sfu-live); }
+.sfu-note.err { color: #fca5a5; }
+
+.sfu-error {
+  margin: 0.5rem auto 1rem;
+  width: calc(100% - 2rem);
+  max-width: 30rem;
+  background: rgb(239 68 68 / 14%);
+  border: 1px solid rgb(239 68 68 / 45%);
+  color: #fecaca;
+  border-radius: 0.9rem;
+  padding: 0.8rem 1rem;
+  font-size: 0.85rem;
+}
+
+/* ───────── Viewer: botones flotantes ───────── */
+.sfu-full-btn {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 15;
+  border: 1px solid rgb(255 255 255 / 25%);
+  background: rgb(15 23 42 / 60%);
+  color: #fff;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.8rem;
+  font-size: 1.2rem;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+
+.sfu-sound-btn {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 15;
+  border: 1px solid rgb(255 255 255 / 25%);
+  background: rgb(15 23 42 / 60%);
+  color: #fff;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.8rem;
+  font-size: 1.1rem;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+
+.sfu-top-pill {
+  position: absolute;
+  top: 0.9rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+}
+
+/* ───────── Preferencia: movimiento reducido ───────── */
+@media (prefers-reduced-motion: reduce) {
+  .sfu-pill-live,
+  .sfu-spinner {
+    animation: none;
+  }
+}
