@@ -7,6 +7,7 @@
   <title>Puerta 1 - Ecuador 1438</title>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <link rel="stylesheet" href="CSS/puerta1.css" />
+  <link rel="stylesheet" href="CSS/sfu.css" />
 </head>
 
 <body class="flex items-center justify-center min-h-screen p-4 text-white">
@@ -26,12 +27,12 @@
             <span class="leading-none">Regresar</span>
           </button>
           <div class="flex items-center gap-1.5">
-            <a id="btn-live-p1" href="transmit.html?puerta=1"
+            <button id="btn-live-p1" type="button"
               class="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-emerald-300/60 bg-emerald-500/15 px-3.5 py-1.5 text-sm font-bold text-emerald-400 shadow-lg transition duration-200 ease-in-out hover:bg-emerald-500 hover:text-[#052e12] focus:outline-none active:scale-95"
-              aria-label="Iniciar transmisión de cámara en vivo">
+              aria-label="Activar cámara de la puerta en vivo">
               <span aria-hidden="true">📹</span>
               <span>En vivo</span>
-            </a>
+            </button>
             <button id="btn-timbre-p1"
               class="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-sky-300/60 bg-[#38bdf8]/15 px-3.5 py-1.5 text-sm font-bold text-[#38bdf8] shadow-lg transition duration-200 ease-in-out hover:bg-[#38bdf8] hover:text-[#1a2a3a] focus:outline-none active:scale-95"
               type="button">
@@ -175,8 +176,34 @@
     </div>
   </div>
 
+  <!-- Modal Cámara en Vivo -->
+  <div id="camera-modal" class="camera-modal" aria-hidden="true" role="dialog"
+    aria-label="Cámara de la puerta en vivo">
+    <div class="camera-modal-card">
+      <button id="btn-close-camera" class="camera-modal-close" type="button" aria-label="Cerrar cámara">&times;</button>
+
+      <div class="camera-modal-stage">
+        <video id="cam-live-video" class="camera-live-video" autoplay muted playsinline></video>
+        <div id="cam-live-placeholder" class="camera-live-placeholder">
+          <div class="sfu-spinner"></div>
+          <p id="cam-hint-text" class="camera-live-hint">Activando la cámara…</p>
+        </div>
+        <div id="cam-status-pill" class="camera-status-pill is-hidden">
+          <span class="dot" aria-hidden="true"></span>
+          EN VIVO
+        </div>
+      </div>
+
+      <div id="cam-error" class="sfu-error is-hidden"></div>
+
+      <p id="cam-note" class="camera-modal-note">La transmisión se está enviando por Telegram.</p>
+    </div>
+  </div>
+
   <script src="JS/timbre.js"></script>
   <script src="JS/puerta1.js"></script>
+  <script src="JS/sfu.js"></script>
+  <script src="JS/camera.js"></script>
 </body>
 
 </html>
