@@ -89,6 +89,7 @@
       var controller = null;   // SFU.watch (recibe la cámara de la puerta)
       var returnCtrl = null;   // SFU.broadcast (tu cámara hacia la puerta)
       var localStream = null;  // cámara/mic local del visor
+      var returnSession = '';  // sesión de retorno publicada en el SFU
       var micOn = true;
       var answering = false;
 
@@ -158,6 +159,58 @@
         });
       }
 
+      function setReturnNote(text, show) {
+        localConnecting.textContent = text;
+        if (show) localConnecting.classList.remove('is-hidden');
+      }
+
+      // Publica tu cámara/mic hacia el SFU (WHIP) en una sesión de
+      // retorno independiente; la puerta la jala (WHEP).
+      function startReturnBroadcast(videoTrack, audioTrack) {
+        returnCtrl = SFU.broadcast({
+          videoTrack: videoTrack,
+          audioTrack: audioTrack,
+          door: params.door || '',
+          silent: true,
+          waitReturn: false,
+          // Si el registro se pierde (Worker frío, KV sin propagar), la
+          // puerta lo redescubre solo en vez de quedarse esperando.
+          pairHeartbeatMs: 15000,
+          onStatus: function (s) {
+            if (s === 'connecting') {
+              setReturnNote('Enviando tu respuesta…', true);
+            } else if (s === 'live') {
+              if (returnSession) setReturnNote('', false);
+            } else if (s === 'reconnecting') {
+              setReturnNote('Reconectando tu respuesta…', true);
+            } else if (s === 'stopped') {
+              setReturnNote('', false);
+            }
+          },
+          onLive: function (info) {
+            if (!info.sessionId || !params.door) return;
+            returnSession = info.sessionId;
+            // Se usan los nombres de pista que devolvió el SFU, no los
+            // supuestos, para que la puerta jale exactamente los mismos.
+            setReturnNote('Avisando a la puerta…', true);
+            SFU.registerReturnReliable(params.door, info.sessionId, info.trackNames)
+              .then(function () {
+                setReturnNote('Respuesta enviada', true);
+                setTimeout(function () {
+                  if (returnSession) setReturnNote('', false);
+                }, 1200);
+              })
+              .catch(function (err) {
+                console.warn('No se pudo registrar el retorno de la llamada', err);
+                setReturnNote('Sin respuesta de la puerta', true);
+              });
+          },
+          onFail: function (err) {
+            console.error('SFU return broadcast error', err);
+          },
+        });
+      }
+
       function startAnswer() {
         if (answering) return;
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -181,41 +234,14 @@
             answerBtn.disabled = false;
             localVideo.style.visibility = 'visible';
 
-            var videoTrack = stream.getVideoTracks()[0];
-            var audioTrack = stream.getAudioTracks()[0];
+            if (!params.door) {
+              // Sin identificador de puerta nadie puede jalar el retorno:
+              // es mejor decirlo que dejar al usuario pensando que sí.
+              setReturnNote('Enlace sin puerta: tu respuesta no podrá verse.', true);
+              return;
+            }
 
-            // Publica tu cámara/mic hacia el SFU (WHIP) en una sesión
-            // de retorno independiente; la puerta la jala (WHEP).
-            returnCtrl = SFU.broadcast({
-              videoTrack: videoTrack,
-              audioTrack: audioTrack,
-              door: params.door || '',
-              silent: true,
-              waitReturn: false,
-              onStatus: function (s) {
-                if (s === 'connecting') {
-                  localConnecting.textContent = 'Enviando tu respuesta…';
-                  localConnecting.classList.remove('is-hidden');
-                } else if (s === 'live') {
-                  localConnecting.textContent = '';
-                  localConnecting.classList.add('is-hidden');
-                } else if (s === 'reconnecting') {
-                  localConnecting.textContent = 'Reconectando tu respuesta…';
-                  localConnecting.classList.remove('is-hidden');
-                }
-              },
-              onLive: function (info) {
-                if (!info.sessionId || !params.door) return;
-                // Registra el emparejamiento para que la puerta reciba tu stream
-                SFU.registerReturn(params.door, info.sessionId, ['video', 'audio'])
-                  .catch(function (err) {
-                    console.warn('No se pudo registrar el retorno de la llamada', err);
-                  });
-              },
-              onFail: function (err) {
-                console.error('SFU return broadcast error', err);
-              },
-            });
+            startReturnBroadcast(stream.getVideoTracks()[0], stream.getAudioTracks()[0]);
           })
           .catch(function (err) {
             console.error('Error de permisos/media local', err);
@@ -232,9 +258,12 @@
           returnCtrl = null;
         }
         if (params.door) {
-          // Libera el emparejamiento: la puerta deja de esperar tu retorno
-          SFU.clearReturn(params.door).catch(function () {});
+          // Libera el emparejamiento: la puerta deja de esperar tu retorno.
+          // Se manda la sesión para no tumbar la llamada de otro visor que
+          // ya haya tomado el relevo.
+          SFU.clearReturn(params.door, returnSession || undefined).catch(function () {});
         }
+        returnSession = '';
         if (localStream) {
           localStream.getTracks().forEach(function (t) { t.stop(); });
           localStream = null;

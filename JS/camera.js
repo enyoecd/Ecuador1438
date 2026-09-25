@@ -28,6 +28,7 @@
   var returnPane = document.getElementById('cam-return-pane');
   var returnVideo = document.getElementById('cam-return-video');
   var returnPlaceholder = document.getElementById('cam-return-placeholder');
+  var returnHint = document.getElementById('cam-return-hint');
   var callPill = document.getElementById('cam-call-pill');
   var camControls = document.getElementById('cam-controls');
   var btnSpeaker = document.getElementById('btn-cam-speaker');
@@ -36,6 +37,8 @@
   var hintText = document.getElementById('cam-hint-text');
   var statusPill = document.getElementById('cam-status-pill');
   var errorBox = document.getElementById('cam-error');
+
+  var RETURN_HINT_DEFAULT = 'Esperando al visitante…';
 
   var controller = null;
   var mediaStream = null;
@@ -61,6 +64,10 @@
     if (statusPill) statusPill.classList.toggle('is-hidden', !visible);
   }
 
+  function setReturnHint(text) {
+    if (returnHint) returnHint.textContent = text || RETURN_HINT_DEFAULT;
+  }
+
   function resetReturn() {
     callActive = false;
     remoteAudioTrack = null;
@@ -81,6 +88,7 @@
     if (returnPlaceholder) returnPlaceholder.classList.add('is-hidden');
     if (camControls) camControls.classList.add('is-hidden');
     if (camStage) camStage.classList.remove('has-call');
+    setReturnHint(RETURN_HINT_DEFAULT);
   }
 
   function showReturnPane(visible) {
@@ -109,6 +117,7 @@
     if (returnFrameFallback) { clearTimeout(returnFrameFallback); returnFrameFallback = null; }
     if (returnPlaceholder) returnPlaceholder.classList.add('is-hidden');
     if (callPill) callPill.classList.remove('is-hidden');
+    setReturnHint(RETURN_HINT_DEFAULT);
   }
 
   function scheduleReturnFrameFallback() {
@@ -272,9 +281,31 @@
             }
           },
           onReturnState: function (state) {
-            if (state === 'connected') {
+            // 'waiting'   → la cámara está al aire, sin nadie todavía
+            // 'connected' → el SFU aceptó la negociación de retorno:
+            //               se divide la modal aunque el primer fotograma
+            //               tarde un instante
+            // 'live'      → llegó la cámara del visitante
+            // 'stalled'   → suscrito pero sin imagen: reintentando
+            // 'ended'     → el visitante colgó o se soltó la suscripción
+            if (state === 'waiting') {
+              callActive = false;
+              showReturnPane(false);
+            } else if (state === 'connected' || state === 'live') {
+              if (!callActive) callActive = true;
+              showReturnPane(true);
+            } else if (state === 'stalled') {
               callActive = true;
               showReturnPane(true);
+              // Solo se avisa si de verdad no hay imagen: si ya se veía y
+              // lo que se perdió fue otro track, tapar el video sería
+              // peor que no avisar.
+              if (returnPlaceholder && !returnFrameShown) {
+                returnPlaceholder.classList.remove('is-hidden');
+                setReturnHint('Reconectando al visitante…');
+              }
+            } else if (state === 'ended') {
+              resetReturn();
             }
           },
           onReturnTrack: function (track, kind) {
@@ -295,7 +326,11 @@
           },
           onFail: function (err) {
             console.error('SFU broadcast error', err);
-            showError('Se perdió la transmisión. Reintentando…');
+            // La caída de la negociación de retorno ya la reintenta el
+            // motor: solo se avisa si además se cae la emisión principal.
+            if (!returnPane || returnPane.classList.contains('is-hidden')) {
+              showError('Se perdió la transmisión. Reintentando…');
+            }
           },
         });
       })
