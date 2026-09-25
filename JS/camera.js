@@ -88,7 +88,14 @@
     returnPane.classList.toggle('is-hidden', !visible);
     camStage.classList.toggle('has-call', visible);
     camControls.classList.toggle('is-hidden', !visible);
-    if (visible && returnPlaceholder) returnPlaceholder.classList.remove('is-hidden');
+    if (returnPlaceholder) {
+      // El indicador "Esperando al visitante" solo se muestra mientras el
+      // primer fotograma de la cámara del visor aún no se renderizó. Una vez
+      // oculto, ningún estado posterior (p. ej. onReturnState('connected'),
+      // que llega después de las pistas y de que el video ya se reprodujo)
+      // debe volver a mostrarlo.
+      returnPlaceholder.classList.toggle('is-hidden', !visible || returnFrameShown);
+    }
   }
 
   // ── Reproducción robusta del video del visitante ─────────
@@ -142,6 +149,9 @@
     }
     if (returnVideo.srcObject !== stream) {
       returnVideo.srcObject = stream;
+      // Nueva transmisión (reconexión): el indicador vuelve a mostrarse solo
+      // mientras se restablece la imagen y se oculta de nuevo al primer fotograma.
+      returnFrameShown = false;
       if (returnPlaceholder) returnPlaceholder.classList.remove('is-hidden');
       scheduleReturnFrameFallback();
     }
