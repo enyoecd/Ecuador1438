@@ -76,7 +76,7 @@
   <div id="error-box" class="sfu-error is-hidden"></div>
 
   <!-- Capa local de control de tiempo (JS/time-gate.js) -->
-  <div id="tg-clock" class="tg-clock tg-left is-hidden" role="timer"
+  <div id="tg-clock" class="tg-clock tg-float tg-left is-hidden" role="timer"
     aria-label="Tiempo restante de visualización">
     <span class="tg-clock-icon" aria-hidden="true">⏱</span>
     <span class="tg-clock-value">02:00</span>
@@ -110,6 +110,7 @@
       var returnSession = '';  // sesión de retorno publicada en el SFU
       var watchSession = '';   // sesión de la puerta a la que estamos enganchados
       var repointTimer = null; // vigilancia de reconexión de la puerta
+      var viendo = false;      // ¿llegó a verse la puerta? (para no cortar antes de empezar)
       var micOn = true;
       var answering = false;
 
@@ -138,6 +139,7 @@
         // de "Tiempo de visualización finalizado".
         if (finalizada) return;
         if (s === 'live') {
+          viendo = true;
           cover.classList.add('is-hidden');
           livePill.classList.remove('is-hidden');
         } else if (s === 'connecting') {
@@ -332,7 +334,7 @@
           tracks: tracks,
           videoEl: video,
           onStatus: setStatus,
-          onLive: function () {},
+          onLive: function () { viendo = true; },
           onFail: function (err) {
             console.error('SFU watch error', err);
           },
@@ -340,11 +342,20 @@
       }
 
       function watchRepoint() {
+        if (finalizada) return;   // la cuenta se agotó: no se reengancha
         repointTimer = setTimeout(function () {
           if (!params.door || !params.session) return;
           SFU.getStreamStatus(params.door)
             .then(function (st) {
-              if (!st || !st.streamSession) return;
+              // La puerta ya no anuncia stream: su contador llegó a 00:00
+              // (o la cerró antes de tiempo). Si ya llegamos a verla, aquí
+              // termina igual que en la puerta. Si solo se encoló el
+              // enlace y nunca llegó imagen, no se toca nada: el contador
+              // del enlace sigue siendo el bueno.
+              if (!st || !st.streamSession) {
+                if (viendo) finalizarVisualizacion();
+                return;
+              }
               if (st.streamSession === watchSession) return;
               // La puerta cambió de sesión: seguimos a la nueva.
               var names = (st.streamTracks && st.streamTracks.length) ? st.streamTracks : null;
@@ -359,17 +370,26 @@
               startWatch(st.streamSession, tracks);
             })
             .catch(function () {})
-            .then(function () { watchRepoint(); });
+            .then(function () { if (!finalizada) watchRepoint(); });
         }, 6000);
       }
 
       /* ═══════════════════════════════════════════════
          Capa local de control de tiempo · VISOR (receptor)
          ───────────────────────────────────────────────
-         Cuenta de 2 minutos DEL VISOR, independiente: no
-         sabe nada de la puerta y no le dice nada a la
-         puerta. Al agotarse solo se apaga el reproductor
-         local de este navegador.
+         La cuenta NO es un invento del visor: se apoya en el
+         plazo real del emisor. La puerta cuelga ese plazo en
+         el enlace (?until=<epoch ms>) y aquí se convierte en
+         "me queda X" restándolo del reloj local. Por eso los
+         dos contador muestran lo mismo y, cuando la puerta
+         llega a 00:00, el visor también termina.
+
+         Es lo mínimo que hace falta por el canal que ya
+         existe: una fecha en el enlace, sin tocar la
+         señalización ni mandar audio o vídeo.
+
+         Si el enlace no trae plazo (enlaces antiguos), se cae
+         a los 2 minutos de siempre.
 
          El cronómetro arranca con el primer 'play' o
          'loadedmetadata' del <video> (o de inmediato, si
@@ -384,11 +404,32 @@
         : null;
       var arrancado = false;
       var finalizada = false;   // ¿ya se agotó el tiempo de visualización?
+      var hastaPuerta = plazoDeLaPuerta();
+
+      // Instante (epoch ms) en que se agota el contador del emisor, o 0 si
+      // el enlace no lo trae. Se lee de la URL y no de params a propósito:
+      // así no hay que tocar SFU.parseViewParams (JS/sfu.js).
+      function plazoDeLaPuerta() {
+        var m = /[?&]until=(\d{9,})/.exec(location.search || '');
+        return m ? Number(m[1]) : 0;
+      }
+
+      // Cuánto queda según el reloj del emisor. Se recorta contra el
+      // límite de 2 minutos porque los relojes de los dos navegadores no
+      // son idénticos: si el de aquí va atrasado, el plazo se vería más
+      // largo que la cuenta original.
+      function restanteDeLaPuerta() {
+        if (!hastaPuerta) return null;
+        return Math.min(hastaPuerta - Date.now(), TimeGate.LIMITE_MS);
+      }
 
       function arrancarReloj() {
         if (arrancado || !reloj) return;
         arrancado = true;
-        reloj.start(TimeGate.LIMITE_MS);
+        var restante = restanteDeLaPuerta();
+        // Sin plazo en el enlace → los 2 minutos de siempre. Con plazo ya
+        // vencido (enlace abierto tarde) → se agota en el acto.
+        reloj.start(restante === null ? TimeGate.LIMITE_MS : restante);
       }
 
       function finalizarVisualizacion() {

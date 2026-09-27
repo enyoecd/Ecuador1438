@@ -28,8 +28,15 @@
           </button>
           <div class="flex items-center gap-1.5">
             <button id="btn-live-p1" type="button"
-              class="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-emerald-300/60 bg-emerald-500/15 px-3.5 py-1.5 text-sm font-bold text-emerald-400 shadow-lg transition duration-200 ease-in-out hover:bg-emerald-500 hover:text-[#052e12] focus:outline-none active:scale-95"
+              class="relative inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-emerald-300/60 bg-emerald-500/15 px-3.5 py-1.5 text-sm font-bold text-emerald-400 shadow-lg transition duration-200 ease-in-out hover:bg-emerald-500 hover:text-[#052e12] focus:outline-none active:scale-95"
               aria-label="Activar cámara de la puerta en vivo">
+              <!-- Tiempo restante: a la izquierda del mensaje, misma línea.
+                   Lo pinta JS/time-gate.js; aria-hidden para que el número
+                   que cambia cada segundo no entre en el nombre del botón. -->
+              <span id="tg-clock" class="tg-clock tg-inline is-hidden" aria-hidden="true">
+                <span class="tg-clock-icon" aria-hidden="true">⏱</span>
+                <span class="tg-clock-value">02:00</span>
+              </span>
               <span aria-hidden="true">📹</span>
               <span>En vivo</span>
             </button>
@@ -236,12 +243,6 @@
     </div>
   </div>
 
-  <!-- Capa local de control de tiempo (JS/time-gate.js) -->
-  <div id="tg-clock" class="tg-clock is-hidden" role="timer" aria-label="Tiempo restante de uso de la cámara">
-    <span class="tg-clock-icon" aria-hidden="true">⏱</span>
-    <span class="tg-clock-value">02:00</span>
-  </div>
-
   <div id="tg-toast" class="tg-toast is-hidden" role="status" aria-live="polite"></div>
 
   <script src="JS/timbre.js"></script>
@@ -353,6 +354,14 @@
         window.Puerta1Camera.alCerrar(function () {
           clock.hide();
           pintarBoton();
+        });
+
+        // Lo único que la puerta le comunica al visor es el instante en
+        // que se agota esta cuenta; camera.js lo añade al enlace. Se
+        // vuelve a leer en cada aviso, así que un enlace antiguo lleva
+        // siempre el plazo real de la sesión que lo generó.
+        window.Puerta1Camera.plazo(function () {
+          return clock.deadline();
         });
       }
 

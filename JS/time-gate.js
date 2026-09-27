@@ -2,24 +2,31 @@
    time-gate.js — Capa local de control de tiempo
    Ecuador 1438 · Puerta 1 (emisor) y visor
    ─────────────────────────────────────────────
-   Cronómetro flotante de 2 minutos (02:00 → 00:00)
-   con parpadeo rojo en los últimos 10 segundos, más
-   el bloqueo de 5 minutos en localStorage que usa la
+   Cronómetro de 2 minutos (02:00 → 00:00) con
+   parpadeo rojo en los últimos 10 segundos, más el
+   bloqueo de 5 minutos en localStorage que usa la
    puerta cuando se agota el tiempo.
 
    Es 100 % local: no hace fetch, no abre WebSocket,
    no crea DataChannels y no toca la señalización
-   WebRTC. Cada página que lo carga lleva su propia
-   cuenta; no se comparte nada entre la puerta y el
-   visor: no hay forma de que uno sepa qué está
-   haciendo el otro.
+   WebRTC. El contador de cada lado lleva su propia
+   cuenta; nada de lo que hay aquí empuja vídeo ni
+   mensajes de un lado al otro.
 
-   Usa una duración (ms), no un instante absoluto
-   compartido, precisamente por eso: el contador de
-   cada lado es suyo.
+   Para que el visor no vaya con un 02:00 inventado,
+   la puerta sí comunica una cosa: el instante en que
+   su contador se agota. Lo hace por el enlace que ya
+   viaja al visor (ver JS/camera.js), y el visor pinta
+   la diferencia entre ese instante y su reloj. Es el
+   mínimo dato posible —una fecha, sin audio ni
+   vídeo— y aun así corrige el desfase de los
+   navegadores.
+
+   Usa una duración (ms), no un instante compartido:
+   cada uno arranca la suya con el plazo que le llega.
 
    API:
-     TimeGate.create(el, {onEnd}) → {start, hide}
+     TimeGate.create(el, {onEnd}) → {start, hide, deadline}
      TimeGate.toast(el, texto, ms)
      TimeGate.bloqueoVigente()  → {hasta, min} | null
      TimeGate.guardarBloqueo(hasta)
@@ -177,10 +184,23 @@
       }, Math.max(0, restante));
     }
 
+    // El plazo puede venir de dos sitios: el de la puerta (el que hay en
+    // el enlace) o el de 2 minutos por defecto. Un plazo ya vencido (0 o
+    // negativo) significa que al abrir el enlace ya no quedaba tiempo:
+    // se agota en el acto en vez de inventar dos minutos nuevos.
     function start(ms) {
       if (!el) return;
       limpiarReloj();
-      var dur = Number(ms) > 0 ? Number(ms) : LIMITE_MS;
+      var dur = Number(ms);
+      if (isNaN(dur)) dur = LIMITE_MS;
+      if (dur <= 0) {
+        activo = false;
+        restante = 0;
+        el.classList.remove('is-hidden');
+        pintar();
+        terminar();
+        return;
+      }
       terminado = false;
       activo = true;
       hasta = Date.now() + dur;
@@ -213,7 +233,13 @@
       else pintar();
     });
 
-    return { start: start, hide: hide };
+    // Instante en que se agota el contador, o 0 si no está corriendo.
+    // La puerta lo lee para ponerlo en el enlace del visor.
+    function deadline() {
+      return activo && hasta > 0 ? hasta : 0;
+    }
+
+    return { start: start, hide: hide, deadline: deadline };
   }
 
   global.TimeGate = {

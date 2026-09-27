@@ -56,6 +56,7 @@
   // Se rellenan desde window.Puerta1Camera; si ese script no está, aquí
   // no pasa nada y la cámara funciona igual.
   var hookCerrar = null;
+  var hookPlazo = null;   // → instante (epoch ms) en que se agota el contador
   var gateInicio = null;   // puede devolver false para no abrir la cámara
 
   function setHint(text) {
@@ -266,6 +267,17 @@
   // Aviso transparente por Telegram (una sola vez por sesión)
   function notifyTelegram(viewUrl) {
     if (!window.SFU || !viewUrl) return;
+
+    // Al visor se le manda el instante en que se agota el contador de la
+    // puerta, para que no arranque su cuenta desde cero. Viaja como fecha
+    // (epoch ms) y no como "quedan N segundos": si el enlace tarda unos
+    // segundos en abrirse, la fecha sigue siendo correcta y los segundos
+    // ya no lo serían. El visor calcula solo la diferencia.
+    var hasta = hookPlazo ? Number(hookPlazo()) || 0 : 0;
+    if (hasta > 0) {
+      viewUrl += (viewUrl.indexOf('?') >= 0 ? '&' : '?') + 'until=' + hasta;
+    }
+
     SFU.notifyTelegram(viewUrl, DOOR).catch(function () {});
   }
 
@@ -489,11 +501,13 @@
 
   // ── Puente con la capa local de control de tiempo ──
   // Se expone la función local que apaga la cámara, un aviso de que se
-  // cerró y un veto de arranque. No se expone nada de la conexión: ni el
-  // SFU, ni sesiones, ni señalización.
+  // cerró, el veto de arranque y el plazo del contador. Lo único que
+  // sale de aquí hacia el visor es ese instante, y va por el enlace.
   window.Puerta1Camera = {
     close: function () { closeCamera(); },
     alCerrar: function (fn) { hookCerrar = typeof fn === 'function' ? fn : null; },
+    // fn() → epoch ms en que se agota el contador, o 0 si no corre.
+    plazo: function (fn) { hookPlazo = typeof fn === 'function' ? fn : null; },
     // fn() → false impide que se abra la cámara (y avisa del bloqueo).
     puerta: function (fn) { gateInicio = typeof fn === 'function' ? fn : null; },
   };
