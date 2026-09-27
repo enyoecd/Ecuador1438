@@ -554,20 +554,15 @@
   user-select: none;
 }
 
-/* Puerta 1: pegado a la izquierda del botón "En vivo", en su misma
-   línea. Es absolute a propósito —no ocupa ancho, así que la fila de
-   botones no se desplaza ni se desborda en pantallas estrechas— y su
-   z-index lo deja por encima de la modal de la cámara (z-index 9996)
-   para que siga viéndose con la transmisión encendida. */
-.tg-clock.tg-inline {
-  position: absolute;
-  top: 50%;
-  right: 100%;
-  transform: translateY(-50%);
-  margin-right: 0.4rem;
-  z-index: 10010;
-  padding: 0.2rem 0.55rem;
-  font-size: 0.85rem;
+/* Puerta 1: dentro de la modal, en la misma fila que la píldora "En vivo"
+   y a su izquierda. Va en flujo —no absoluto— para que la fila de estado lo
+   centre junto a la píldora sin calcular nada, y la modal lo muestra y
+   oculta con el resto del escenario. */
+.tg-clock.tg-cam {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 
 /* Visor: flotante en una esquina, por encima del escenario. */
