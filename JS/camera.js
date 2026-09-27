@@ -278,6 +278,11 @@
     requestMedia()
       .then(function (stream) {
         mediaStream = stream;
+        // Límite de uso: arranca la cuenta de 2 minutos y, al cumplirse,
+        // reutiliza el cierre existente (closeCamera).
+        if (window.CameraLimit) {
+          window.CameraLimit.alIniciar(function () { closeCamera(); });
+        }
         if (video) {
           video.srcObject = stream;
           video.play().catch(function () {});
@@ -400,6 +405,9 @@
 
   function openCamera() {
     if (!modal) return;
+    // Límite de uso: si está bloqueado no se enciende la cámara; el aviso
+    // muestra cuántos minutos enteros quedan.
+    if (window.CameraLimit && !window.CameraLimit.puedeIniciar()) return;
     modal.classList.add('active');
     modal.setAttribute('aria-hidden', 'false');
     if (controller && controller.isRunning()) return;
@@ -409,6 +417,10 @@
   }
 
   function closeCamera() {
+    // Límite de uso: si el cierre lo provoca el corte por tiempo, el temporizador
+    // ya se desarmó; si lo provoca el usuario antes de los 2 minutos, se cancela
+    // y no se genera bloqueo.
+    if (window.CameraLimit) window.CameraLimit.alDetener();
     if (!modal) return;
     stopBroadcast();
     modal.classList.remove('active');
