@@ -551,6 +551,13 @@ select option[disabled] {
   background: rgba(239, 68, 68, 0.25);
 }
 
+/* El dibujo del micrófono (clases sfu-mic-*) viene de sfu.css, pero la regla
+   que revela la tachadura está atada a .sfu-ctl. En esta modal el botón es
+   .cam-ctl, así que sin repetir el selector la barra de silencio no se ve. */
+.cam-ctl.is-muted .sfu-mic-slash {
+  opacity: 1;
+}
+
 .camera-live-video {
   width: 100%;
   height: 100%;

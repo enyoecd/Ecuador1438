@@ -293,6 +293,7 @@
         var videoTrack = stream.getVideoTracks()[0];
         var audioTrack = stream.getAudioTracks()[0];
         micOn = true;
+        setMicMuted(false);
 
         controller = SFU.broadcast({
           videoTrack: videoTrack,
@@ -394,7 +395,7 @@
     telegramNotified = false;
     notifiedSession = '';
     micOn = true;
-    if (btnMic) btnMic.textContent = '🎙️';
+    setMicMuted(false);
   }
 
   function openCamera() {
@@ -417,16 +418,25 @@
     setHint('Activando la cámara…');
   }
 
+  // El icono es siempre un micrófono (SVG en el HTML). Al silenciar no se
+  // cambia el dibujo: se le añade la tachadura roja con la clase .is-muted,
+  // igual que en view.html. Antes se reescribía el textContent con 🔇, que es
+  // el icono de bocina apagada y no de micrófono silenciado.
+  function setMicMuted(muted) {
+    if (!btnMic) return;
+    btnMic.classList.toggle('is-muted', muted);
+    btnMic.setAttribute('aria-pressed', muted ? 'true' : 'false');
+    btnMic.setAttribute('aria-label',
+      muted ? 'Activar el micrófono de la puerta' : 'Silenciar el micrófono de la puerta');
+  }
+
   function toggleMic() {
     if (!mediaStream) return;
     var audio = mediaStream.getAudioTracks()[0];
     if (!audio) return;
     micOn = !micOn;
     audio.enabled = micOn;
-    if (btnMic) {
-      btnMic.textContent = micOn ? '🎙️' : '🔇';
-      btnMic.classList.toggle('is-muted', !micOn);
-    }
+    setMicMuted(!micOn);
   }
 
   function toggleSpeaker() {
