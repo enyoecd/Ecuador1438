@@ -437,6 +437,47 @@
   background: rgb(239 68 68 / 25%);
 }
 
+/* Icono de micrófono. El dibujo del micro es siempre el mismo; la
+   tachadura roja solo aparece con .is-muted, de modo que el botón nunca
+   se convierte en el icono de bocina. */
+.sfu-mic-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  flex-shrink: 0;
+}
+
+.sfu-mic-body {
+  fill: currentColor;
+}
+
+.sfu-mic-stand {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.sfu-mic-slash {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.sfu-ctl.is-muted .sfu-mic-slash { opacity: 1; }
+
+/* Halo oscuro bajo la línea roja: mantiene visible la tachadura sobre el
+   micro blanco y sobre el fondo rojizo del botón silenciado. */
+.sfu-mic-slash-halo {
+  stroke: #0f172a;
+  stroke-width: 4.6;
+  stroke-linecap: round;
+}
+
+.sfu-mic-slash-line {
+  stroke: var(--sfu-danger);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
 .sfu-answer {
   flex-shrink: 0;
   display: inline-flex;
