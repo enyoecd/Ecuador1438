@@ -104,7 +104,7 @@
     if (returnPlaceholder) returnPlaceholder.classList.add('is-hidden');
     if (camControls) camControls.classList.add('is-hidden');
     if (camStage) camStage.classList.remove('has-call');
-    setNote('La transmisión se está enviando por Telegram.');
+    setNote('La transmisión se está enviando.');
   }
 
   // La división solo se muestra cuando hay un frame real del
