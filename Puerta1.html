@@ -236,11 +236,145 @@
     </div>
   </div>
 
+  <!-- Capa local de control de tiempo (JS/time-gate.js) -->
+  <div id="tg-clock" class="tg-clock is-hidden" role="timer" aria-label="Tiempo restante de uso de la cámara">
+    <span class="tg-clock-icon" aria-hidden="true">⏱</span>
+    <span class="tg-clock-value">02:00</span>
+  </div>
+
+  <div id="tg-toast" class="tg-toast is-hidden" role="status" aria-live="polite"></div>
+
   <script src="JS/timbre.js"></script>
   <script src="JS/puerta1.js"></script>
   <script src="JS/sfu.js"></script>
+  <script src="JS/time-gate.js"></script>
   <script src="JS/camera.js"></script>
-  <script src="JS/camera-limit.js"></script>
+
+  <script>
+    /* ═══════════════════════════════════════════════
+       Capa local de control de tiempo · PUERTA 1 (emisor)
+       ───────────────────────────────────────────────
+       Todo aquí es local: ni fetch, ni WebSocket, ni
+       DataChannel, ni señalización WebRTC. La única
+       función de la app a la que se llama es la local
+       que ya apaga la cámara (window.Puerta1Camera).
+       ═══════════════════════════════════════════════ */
+    (function () {
+      'use strict';
+
+      var MINUTO_MS = 60 * 1000;
+
+      var btn = document.getElementById('btn-live-p1');
+      var clockEl = document.getElementById('tg-clock');
+      var toastEl = document.getElementById('tg-toast');
+      var camVideo = document.getElementById('cam-live-video');
+      if (!btn || !window.TimeGate) return;
+
+      var refresco = null;   // actualiza el número del aviso por minuto
+
+      var clock = TimeGate.create(clockEl, {
+        onEnd: function () {
+          // Si la cámara ya no está emitiendo, el contador se llegó a
+          // agotar con la cámara cerrada: no hay bloqueo que aplicar.
+          if (!emitiendo()) { clock.hide(); return; }
+
+          // 00:00 → arranca el bloqueo de 5 minutos…
+          TimeGate.guardarBloqueo(Date.now() + TimeGate.BLOQUEO_MS);
+          mostrarAviso(60000);
+          pintarBoton();
+
+          // …y se llama ÚNICAMENTE a la función local que apaga la cámara.
+          if (window.Puerta1Camera) window.Puerta1Camera.close();
+        }
+      });
+
+      // ¿Hay cámara realmente emitiendo? Se mira el <video>, no la modal:
+      // si el permiso se denegó la modal sigue abierta pero no hay stream,
+      // y no debe contar como tiempo de uso.
+      function emitiendo() {
+        return !!(camVideo && camVideo.srcObject);
+      }
+
+      /* ── Aviso de función restringida ── */
+
+      function textoAviso(bloq) {
+        return 'Esta función se habilitará en ' + TimeGate.formatearMinutos(bloq.min) + '.';
+      }
+
+      // Solo actualiza el número mientras el aviso siga en pantalla; nunca
+      // lo vuelve a mostrar por su cuenta.
+      function refrescarAviso() {
+        if (refresco) { clearTimeout(refresco); refresco = null; }
+        if (!toastEl || toastEl.classList.contains('is-hidden')) return;
+        var bloq = TimeGate.bloqueoVigente();
+        if (!bloq) { TimeGate.toast(toastEl, '', 0); return; }
+        toastEl.textContent = textoAviso(bloq);
+        var diff = bloq.hasta - Date.now();
+        refresco = setTimeout(refrescarAviso, (diff % MINUTO_MS) || MINUTO_MS);
+      }
+
+      // Minutos enteros, sin segundos.
+      function mostrarAviso(ms) {
+        var bloq = TimeGate.bloqueoVigente();
+        if (!bloq) { TimeGate.toast(toastEl, '', 0); return; }
+        TimeGate.toast(toastEl, textoAviso(bloq), ms);
+        refrescarAviso();
+      }
+
+      /* ── Botón "En vivo" ── */
+
+      // El botón nunca se deshabilita: debe seguir recibiendo clics para
+      // poder explicar por qué no se abre la cámara.
+      function pintarBoton() {
+        var bloq = TimeGate.bloqueoVigente();
+        if (bloq) {
+          btn.classList.add('opacity-50', 'cursor-not-allowed');
+          btn.setAttribute('aria-label', 'Función restringida. ' + textoAviso(bloq));
+        } else {
+          btn.classList.remove('opacity-50', 'cursor-not-allowed');
+          btn.setAttribute('aria-label', 'Activar cámara de la puerta en vivo');
+        }
+      }
+
+      // Veto de arranque: camera.js consulta esta puerta antes de abrir
+      // la cámara. Si hay bloqueo, avisa y se devuelve false.
+      if (window.Puerta1Camera) {
+        window.Puerta1Camera.puerta(function () {
+          var bloq = TimeGate.bloqueoVigente();
+          if (!bloq) return true;      // sin bloqueo: la cámara se abre
+          mostrarAviso(5000);
+          pintarBoton();
+          return false;
+        });
+
+        // camera.js notifica, no se llama: aquí no hay ninguna conexión ni
+        // señalización en juego. Si el usuario cierra la cámara antes de
+        // tiempo, la cuenta se cancela y no se genera bloqueo.
+        window.Puerta1Camera.alCerrar(function () {
+          clock.hide();
+          pintarBoton();
+        });
+      }
+
+      // El contador se arma en el clic válido, después de que el veto
+      // haya pasado. Se vuelve a comprobar el bloqueo porque, al estar
+      // en el mismo botón, este listener se ejecuta siempre: si no se
+      // re-comprobara, arrancaría una cuenta de 2 minutos sobre una
+      // cámara que ni siquiera se ha abierto.
+      btn.addEventListener('click', function () {
+        if (TimeGate.bloqueoVigente()) return;
+        clock.start(TimeGate.LIMITE_MS);
+      });
+
+      // Al cargar: si el bloqueo guardado sigue vivo, el botón aparece
+      // restringido. El aviso se ve al pulsar, no de entrada.
+      pintarBoton();
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) pintarBoton();
+      });
+      window.addEventListener('pageshow', pintarBoton);
+    })();
+  </script>
 </body>
 
 </html>

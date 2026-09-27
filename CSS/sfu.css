@@ -529,10 +529,91 @@
 .sfu-hangup:active { transform: scale(0.96); }
 .sfu-hangup:disabled { opacity: 0.6; }
 
+/* ───────── Capa local de control de tiempo ─────────
+   Flotante sobre la página (position: fixed) y por
+   encima de las modales de la puerta (z-index 9996+). */
+.tg-clock {
+  position: fixed;
+  top: 0.9rem;
+  right: 0.9rem;
+  z-index: 10010;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+  color: #e2e8f0;
+  background: rgb(4 8 15 / 78%);
+  border: 1px solid rgb(255 255 255 / 22%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* En el visor la píldora "En vivo" ya ocupa el centro: el contador
+   va a la otra esquina para no montarse encima. */
+.tg-clock.tg-left {
+  right: auto;
+  left: 0.9rem;
+}
+
+.tg-clock-icon {
+  font-size: 0.85rem;
+  opacity: 0.75;
+  line-height: 1;
+}
+
+/* Últimos 10 segundos: rojo y parpadeante. */
+.tg-clock.is-urgent,
+.tg-clock.is-over {
+  color: #fecaca;
+  background: rgb(69 10 10 / 82%);
+  border-color: rgb(248 113 113 / 0.8);
+}
+
+.tg-clock.is-urgent {
+  animation: tg-blink 1s steps(1, end) infinite;
+}
+
+@keyframes tg-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.25; }
+}
+
+/* Aviso flotante de función restringida. */
+.tg-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  z-index: 10011;
+  max-width: min(90vw, 26rem);
+  padding: 0.85rem 1.15rem;
+  border-radius: 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  color: #fecaca;
+  background: rgb(69 10 10 / 0.92);
+  border: 1px solid rgb(248 113 113 / 0.55);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
 /* ───────── Preferencia: movimiento reducido ───────── */
 @media (prefers-reduced-motion: reduce) {
   .sfu-pill-live,
-  .sfu-spinner {
+  .sfu-spinner,
+  .tg-clock.is-urgent {
     animation: none;
   }
 }

@@ -52,6 +52,12 @@
   var playbackWatchdog = null;
   var gestureRetryAttached = false;
 
+  // Avisos hacia la capa local de control de tiempo (JS/time-gate.js).
+  // Se rellenan desde window.Puerta1Camera; si ese script no está, aquí
+  // no pasa nada y la cámara funciona igual.
+  var hookCerrar = null;
+  var gateInicio = null;   // puede devolver false para no abrir la cámara
+
   function setHint(text) {
     if (hintText) hintText.textContent = text;
   }
@@ -278,11 +284,6 @@
     requestMedia()
       .then(function (stream) {
         mediaStream = stream;
-        // Límite de uso: arranca la cuenta de 2 minutos y, al cumplirse,
-        // reutiliza el cierre existente (closeCamera).
-        if (window.CameraLimit) {
-          window.CameraLimit.alIniciar(function () { closeCamera(); });
-        }
         if (video) {
           video.srcObject = stream;
           video.play().catch(function () {});
@@ -405,9 +406,6 @@
 
   function openCamera() {
     if (!modal) return;
-    // Límite de uso: si está bloqueado no se enciende la cámara; el aviso
-    // muestra cuántos minutos enteros quedan.
-    if (window.CameraLimit && !window.CameraLimit.puedeIniciar()) return;
     modal.classList.add('active');
     modal.setAttribute('aria-hidden', 'false');
     if (controller && controller.isRunning()) return;
@@ -417,10 +415,6 @@
   }
 
   function closeCamera() {
-    // Límite de uso: si el cierre lo provoca el corte por tiempo, el temporizador
-    // ya se desarmó; si lo provoca el usuario antes de los 2 minutos, se cancela
-    // y no se genera bloqueo.
-    if (window.CameraLimit) window.CameraLimit.alDetener();
     if (!modal) return;
     stopBroadcast();
     modal.classList.remove('active');
@@ -428,6 +422,10 @@
     showPill(false);
     resetReturn();
     setHint('Activando la cámara…');
+    // Aviso a la capa local de tiempo (JS/time-gate.js) de que la cámara
+    // ya está apagada, para que cancele su cuenta. Notificación local, no
+    // forma parte de la conexión.
+    if (hookCerrar) hookCerrar();
   }
 
   // El icono es siempre un micrófono (SVG en el HTML). Al silenciar no se
@@ -458,7 +456,14 @@
   }
 
   if (btnOpen) {
-    btnOpen.addEventListener('click', openCamera);
+    btnOpen.addEventListener('click', function () {
+      // La capa local de tiempo puede vetar el arranque cuando la función
+      // está restringida. Se consulta aquí y no con un listener propio
+      // porque, en el nodo del botón, todos los listeners se ejecutan en
+      // orden de registro: uno añadido aparte llegaría tarde.
+      if (gateInicio && gateInicio() === false) return;
+      openCamera();
+    });
   }
 
   if (btnClose) {
@@ -481,4 +486,15 @@
       closeCamera();
     }
   });
+
+  // ── Puente con la capa local de control de tiempo ──
+  // Se expone la función local que apaga la cámara, un aviso de que se
+  // cerró y un veto de arranque. No se expone nada de la conexión: ni el
+  // SFU, ni sesiones, ni señalización.
+  window.Puerta1Camera = {
+    close: function () { closeCamera(); },
+    alCerrar: function (fn) { hookCerrar = typeof fn === 'function' ? fn : null; },
+    // fn() → false impide que se abra la cámara (y avisa del bloqueo).
+    puerta: function (fn) { gateInicio = typeof fn === 'function' ? fn : null; },
+  };
 })();

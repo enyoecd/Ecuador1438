@@ -75,7 +75,15 @@
 
   <div id="error-box" class="sfu-error is-hidden"></div>
 
+  <!-- Capa local de control de tiempo (JS/time-gate.js) -->
+  <div id="tg-clock" class="tg-clock tg-left is-hidden" role="timer"
+    aria-label="Tiempo restante de visualización">
+    <span class="tg-clock-icon" aria-hidden="true">⏱</span>
+    <span class="tg-clock-value">02:00</span>
+  </div>
+
   <script src="JS/sfu.js"></script>
+  <script src="JS/time-gate.js"></script>
   <script>
     (function () {
       'use strict';
@@ -125,6 +133,10 @@
       }
 
       function setStatus(s) {
+        // Agotado el tiempo, ningún estado posterior (una reconexión que
+        // llegara tarde, un 'live' rezagado) puede volver a tapar el aviso
+        // de "Tiempo de visualización finalizado".
+        if (finalizada) return;
         if (s === 'live') {
           cover.classList.add('is-hidden');
           livePill.classList.remove('is-hidden');
@@ -309,6 +321,7 @@
       // recibido en la URL queda viejo. Se consulta /stream-status y
       // se cambia el watch para no quedarse con un cuadro congelado.
       function startWatch(session, tracks) {
+        if (finalizada) return;   // el tiempo de visualización ya se agotó
         if (controller) {
           controller.stop();
           controller = null;
@@ -349,6 +362,76 @@
             .then(function () { watchRepoint(); });
         }, 6000);
       }
+
+      /* ═══════════════════════════════════════════════
+         Capa local de control de tiempo · VISOR (receptor)
+         ───────────────────────────────────────────────
+         Cuenta de 2 minutos DEL VISOR, independiente: no
+         sabe nada de la puerta y no le dice nada a la
+         puerta. Al agotarse solo se apaga el reproductor
+         local de este navegador.
+
+         El cronómetro arranca con el primer 'play' o
+         'loadedmetadata' del <video> (o de inmediato, si
+         el video ya llegó reproduciéndose). Los eventos
+         posteriores NO lo reinician: si el stream se
+         reconecta, la cuenta sigue donde iba, porque es
+         tiempo de visualización, no tiempo de conexión.
+         ═══════════════════════════════════════════════ */
+      var clockEl = document.getElementById('tg-clock');
+      var reloj = window.TimeGate && clockEl
+        ? window.TimeGate.create(clockEl, { onEnd: finalizarVisualizacion })
+        : null;
+      var arrancado = false;
+      var finalizada = false;   // ¿ya se agotó el tiempo de visualización?
+
+      function arrancarReloj() {
+        if (arrancado || !reloj) return;
+        arrancado = true;
+        reloj.start(TimeGate.LIMITE_MS);
+      }
+
+      function finalizarVisualizacion() {
+        if (finalizada) return;
+        finalizada = true;
+        if (reloj) reloj.hide();
+
+        // Se detiene la vigilancia de reconexión: la cuenta terminó y no
+        // tiene sentido reengancharse a una sesión nueva. Es un temporizador
+        // local, no una llamada al emisor.
+        if (repointTimer) { clearTimeout(repointTimer); repointTimer = null; }
+
+        // Cierre de la PeerConnection PROPIA de este visor. SFU.watch.stop()
+        // solo marca running=false y hace pc.close(): no envía ningún mensaje
+        // ni peticiones al emisor, pero evita que SFU.watch vuelva a attaches
+        // un stream nuevo al <video> y lo resucite.
+        if (controller) {
+          controller.stop();
+          controller = null;
+        }
+
+        // Limpieza local del reproductor: sin esto el navegador conserva el
+        // último fotograma decodificado y la imagen se queda congelada.
+        var remoto = video.srcObject;
+        if (remoto && remoto.getTracks) {
+          remoto.getTracks().forEach(function (t) { t.stop(); });
+        }
+        try { video.pause(); } catch (e) {}
+        video.srcObject = null;
+        video.removeAttribute('src');
+        try { video.load(); } catch (e) {}
+
+        hideError();
+        livePill.classList.add('is-hidden');
+        cover.classList.remove('is-hidden');
+        setCoverText('Tiempo de visualización finalizado', false);
+      }
+
+      video.addEventListener('play', arrancarReloj, { once: true });
+      video.addEventListener('loadedmetadata', arrancarReloj, { once: true });
+      // Si el script se cargó con el video ya en marcha, no se espera
+      // a otro evento que quizá no vuelva a llegar.
+      if (video.readyState >= 2) arrancarReloj();
 
       // Enlace sin sesión → inválido
       if (!params.session) {
