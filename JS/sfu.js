@@ -137,6 +137,23 @@
     return data.sessionId;
   }
 
+  // Nombres de pista que el SFU aceptó realmente. Si la respuesta
+  // trae error por alguna pista, esa se descarta: pedir una pista
+  // inexistente (p. ej. audio sin micrófono concedido) hace fallar
+  // la negociación entera.
+  function acceptedTrackNames(res, requestedNames) {
+    var list = res && Array.isArray(res.tracks) ? res.tracks : null;
+    if (!list || !list.length) return requestedNames.slice();
+    var names = [];
+    for (var i = 0; i < list.length; i++) {
+      var t = list[i] || {};
+      if (t.errorCode) continue;
+      var name = typeof t.trackName === 'string' && t.trackName ? t.trackName : requestedNames[i];
+      if (name) names.push(String(name));
+    }
+    return names.length ? names : requestedNames.slice();
+  }
+
   // ─────────────────────────────────────────────────────────────
   // Emisor: sube (push) pistas locales → envío media
   // ─────────────────────────────────────────────────────────────
@@ -231,21 +248,63 @@
   // ─────────────────────────────────────────────────────────────
   // Emparejamiento bidireccional (el visor publica su stream de
   // retorno; la puerta lo consulta para jalarlo hacia su sesión).
+  // El registro se reintenta y se renueva con un heartbeat: si el
+  // registro se pierde, la puerta lo redescubre sola.
   // ─────────────────────────────────────────────────────────────
   function registerReturn(doorId, returnSessionId, trackNames) {
     return api('pair', 'POST', {
       door: String(doorId),
       session: String(returnSessionId),
-      tracks: trackNames || ['video', 'audio'],
+      tracks: (trackNames && trackNames.length ? trackNames : ['video', 'audio']).map(String),
     });
   }
 
-  function getReturnStatus(doorId) {
-    return api('pair-status?door=' + encodeURIComponent(String(doorId)), 'GET');
+  function registerReturnReliable(doorId, returnSessionId, trackNames, tries) {
+    var left = tries == null ? 4 : tries;
+    return registerReturn(doorId, returnSessionId, trackNames).catch(function (err) {
+      if (left <= 0) throw err;
+      return delay(700).then(function () {
+        return registerReturnReliable(doorId, returnSessionId, trackNames, left - 1);
+      });
+    });
   }
 
-  function clearReturn(doorId) {
-    return api('pair-cancel?door=' + encodeURIComponent(String(doorId)), 'DELETE');
+  function announceStream(doorId, streamSessionId, trackNames) {
+    if (!doorId || !streamSessionId) return Promise.resolve(null);
+    return api('pair', 'POST', {
+      door: String(doorId),
+      streamSession: String(streamSessionId),
+      tracks: (trackNames || []).map(String),
+    });
+  }
+
+  // waitMs > 0 → long-poll: el Worker responde en cuanto el visor
+  // se registra, en lugar de obligar a la puerta a sondear.
+  function getReturnStatus(doorId, waitMs) {
+    var q = 'pair-status?door=' + encodeURIComponent(String(doorId));
+    if (waitMs) q += '&wait=' + Math.round(waitMs);
+    return api(q, 'GET');
+  }
+
+  function getStreamStatus(doorId) {
+    return api('stream-status?door=' + encodeURIComponent(String(doorId)), 'GET');
+  }
+
+  // La puerta deja de emitir: su anuncio se borra para que un visor
+  // con el enlace viejo no intente mirar una sesión ya cerrada.
+  function clearStream(doorId, streamSessionId) {
+    if (!doorId) return Promise.resolve(null);
+    var body = { door: String(doorId) };
+    if (streamSessionId) body.streamSession = String(streamSessionId);
+    return api('stream-clear', 'POST', body);
+  }
+
+  // Con session solo se libera si sigue siendo la misma: una segunda
+  // pestaña o un segundo visitante no tumba la llamada del otro.
+  function clearReturn(doorId, session) {
+    var body = { door: String(doorId) };
+    if (session) body.session = String(session);
+    return api('pair-cancel', 'POST', body);
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -261,8 +320,15 @@
   //                retorno DENTRO de esta misma sesión (renegociación
   //                sobre este mismo PeerConnection) → WHEP+WHIP
   //                simultáneo sobre el SFU de Cloudflare.
+  //  · pairHeartbeatMs → el emisor renueva su emparejamiento para
+  //                que la puerta no se quede esperando si el
+  //                registro se perdió (usado por el visor).
+  //  · announceReturn → este emisor PUBLICA su stream como retorno
+  //                (visor). La puerta no lo pone: solo consume.
   //  · onReturnTrack(track, kind) → pistas devueltas por el visor.
-  //  · onReturnState('connected') → la llamada ya es bidireccional.
+  //  · onReturnState('connected'|'waiting') → estado de la llamada.
+  //  · onReturnFail(err) → falló solo la negociación del retorno.
+  //  · onUpdate({sessionId, viewUrl, trackNames}) → cambió la sesión.
   // ─────────────────────────────────────────────────────────────
   function broadcast(options) {
     var opts = options || {};
@@ -274,12 +340,17 @@
 
     var silent = !!opts.silent;
     var waitReturn = !!opts.waitReturn && !!opts.door;
+    var announceReturn = !!opts.announceReturn && !!opts.door;
     var returnTracks = opts.returnTracks || ['video', 'audio'];
     var activeReturnSession = null;
+    var subscribedReturnNames = null;
     var returnPolling = false;
     var subscribing = false;
     var needsResubscribe = false;
+    var returnFailures = 0;
+    var retryNotBefore = 0;
     var returnPollTimer = null;
+    var stopHeartbeat = null;
 
     var trackEntries = []; // [{name, kind}]
     if (opts.videoTrack) trackEntries.push({ name: 'video', track: opts.videoTrack });
@@ -287,9 +358,31 @@
 
     function status(s) { if (opts.onStatus) opts.onStatus(s); }
 
+    function returnState(s) { if (opts.onReturnState) opts.onReturnState(s); }
+
     // Enruta las pistas que llegan desde el visor (retorno)
     function routeTrack(ev) {
       if (opts.onReturnTrack) opts.onReturnTrack(ev.track, ev.track.kind);
+    }
+
+    // ── Publicación del stream propio y renovación del pairing ──
+    // Solo el visor (announceReturn) publica y renueva el
+    // emparejamiento. Si lo hiciera la puerta, se anunciaría a sí
+    // misma como respuesta del visitante.
+    function startPairHeartbeat(session, names) {
+      stopPairHeartbeat();
+      var every = opts.pairHeartbeatMs || 0;
+      if (!announceReturn || !every || !session) return;
+      var id = setInterval(function () {
+        if (!runningRef.running) return;
+        registerReturn(opts.door, session, names).catch(function () {});
+      }, every);
+      if (id && typeof id.unref === 'function') id.unref();
+      stopHeartbeat = function () { clearInterval(id); };
+    }
+
+    function stopPairHeartbeat() {
+      if (stopHeartbeat) { stopHeartbeat(); stopHeartbeat = null; }
     }
 
     async function connectOnce() {
@@ -306,9 +399,20 @@
         return { trackName: t.name, transceiver: tr };
       });
 
-      await pushTracks(newPc, newSessionId, entries);
+      var published = await pushTracks(newPc, newSessionId, entries);
+      // Nombres reales: es lo que la contraparte debe pedir. Si el
+      // SFU aceptó solo el video (sin micro), se publica solo eso.
+      var names = acceptedTrackNames(published, trackEntries.map(function (t) { return t.name; }));
+
+      // La puerta anuncia su sesión para que el visor pueda re-apuntarse.
+      // Solo el emisor principal lo hace: si lo hiciera el visor, el
+      // otro visitante se apuntaría a la sesión equivocada.
+      if (opts.door && !silent) {
+        announceStream(opts.door, newSessionId, names).catch(function () {});
+      }
+
       resumeReturnSubscription();
-      return newSessionId;
+      return { sessionId: newSessionId, trackNames: names };
     }
 
     // ── Espera / suscripción del stream de retorno del visor ──
@@ -317,28 +421,48 @@
         return Promise.resolve(false);
       }
       subscribing = true;
-      var remoteTracks = (trackNames || returnTracks).map(function (name) {
-        return { location: 'remote', sessionId: returnSessionId, trackName: String(name) };
+      var names = (trackNames && trackNames.length ? trackNames : returnTracks).map(String);
+      var remoteTracks = names.map(function (name) {
+        return { location: 'remote', sessionId: returnSessionId, trackName: name };
       });
       return pullTracks(pc, sessionId, remoteTracks)
-        .then(function () {
-          activeReturnSession = returnSessionId;
+        .then(function (res) {
           subscribing = false;
-          if (opts.onReturnState) opts.onReturnState('connected');
+          // Si el SFU rechazó alguna pista (p. ej. no hay audio
+          // publicado) se sigue con las que sí entraron: el video no
+          // debe depender de que el micro exista.
+          var got = acceptedTrackNames(res, names);
+          if (!got.length) throw new Error('El SFU no entregó ninguna pista de retorno');
+          activeReturnSession = returnSessionId;
+          subscribedReturnNames = got;
+          needsResubscribe = false;
+          returnFailures = 0;
+          retryNotBefore = 0;
+          returnState('connected');
           return true;
         })
         .catch(function (err) {
           subscribing = false;
-          // Si falla la renegociación volvemos a sondear/reintentar
-          if (opts.onFail) opts.onFail(err);
+          // Falla solo la renegociación del retorno: el stream de ida
+          // sigue bien, así que no se trata como error de transmisión.
+          if (opts.onReturnFail) opts.onReturnFail(err);
+          else if (opts.onFail) opts.onFail(err);
+          // Backoff: evita renegociar en bucle cerrado si el SFU
+          // rechaza las pistas (p. ej. el visitante no tiene micro).
+          returnFailures++;
+          retryNotBefore = Date.now() + Math.min(2000 * Math.min(returnFailures, 4), 15000);
           if (activeReturnSession) {
+            // Ya había llamada: se reintenta la renegociación.
             if (runningRef.running) {
               setTimeout(function () {
-                if (runningRef.running) subscribeReturn(activeReturnSession, returnTracks);
+                if (runningRef.running) {
+                  subscribeReturn(activeReturnSession, subscribedReturnNames || returnTracks);
+                }
               }, 2000);
             }
           } else {
-            startReturnWait();
+            // Nunca hubo conexión: el sondeo sigue esperando al visor.
+            needsResubscribe = true;
           }
           return false;
         });
@@ -350,24 +474,32 @@
       pollReturn();
     }
 
-    // Sondeo persistente: detecta tanto la primera contestación como
-    // llamadas nuevas (un nuevo visor responde tras terminar la anterior).
+    // Sondeo persistente con long-poll: detecta tanto la primera
+    // contestación como llamadas nuevas (un nuevo visor responde tras
+    // terminar la anterior) sin castigar al Worker con requests.
     function pollReturn() {
       if (!runningRef.running) { returnPolling = false; return; }
       if (subscribing) {
         returnPollTimer = setTimeout(pollReturn, 2000);
         return;
       }
-      getReturnStatus(opts.door)
+      // 10 s de long-poll: suficiente para responder al instante y
+      // por debajo del límite de duración de una request del DO.
+      getReturnStatus(opts.door, activeReturnSession ? 0 : 10000)
         .then(function (st) {
           if (!runningRef.running) { returnPolling = false; return; }
           if (
             st && st.active &&
             (needsResubscribe || st.returnSession !== activeReturnSession)
           ) {
-            needsResubscribe = false;
-            subscribeReturn(st.returnSession, st.tracks || returnTracks);
+            if (Date.now() >= retryNotBefore) {
+              needsResubscribe = false;
+              subscribeReturn(st.returnSession, st.tracks || returnTracks);
+            }
+            returnPollTimer = setTimeout(pollReturn, 2000);
+            return;
           }
+          // Sigue en llamada: sondeo corto para detectar relevos.
           returnPollTimer = setTimeout(pollReturn, st && st.active ? 3000 : 2000);
         })
         .catch(function () {
@@ -385,22 +517,31 @@
       while (runningRef.running && trackEntries.length > 0) {
         try {
           status('connecting');
-          var sid = await connectOnce();
-          var viewUrl = buildViewUrl(sid, trackEntries.map(function (t) { return t.name; }), opts.door);
+          var conn = await connectOnce();
+          var sid = conn.sessionId;
+          var names = conn.trackNames;
+          var viewUrl = buildViewUrl(sid, names, opts.door);
           if (!silent) setActiveViewUrl(viewUrl);
 
           var first = !hasBeenLive;
           hasBeenLive = true;
           attempt = 0;
           status('live');
-          if (opts.onLive) opts.onLive({ sessionId: sid, viewUrl: silent ? '' : viewUrl, first: first });
-          if (opts.onUpdate && !silent) opts.onUpdate({ sessionId: sid, viewUrl: viewUrl });
+          if (opts.onLive) {
+            opts.onLive({ sessionId: sid, viewUrl: silent ? '' : viewUrl, trackNames: names, first: first });
+          }
+          if (opts.onUpdate && !silent) {
+            opts.onUpdate({ sessionId: sid, viewUrl: viewUrl, trackNames: names });
+          }
+          // El visor renueva su emparejamiento mientras esté en llamada.
+          startPairHeartbeat(sid, names);
 
           // Esperar a que se caiga la conexión (o que nos detengan)
           await waitForConnectionToEnd(pc, runningRef);
           if (!runningRef.running) break;
 
           needsResubscribe = true;
+          stopPairHeartbeat();
           status('reconnecting');
           attempt++;
           await backoff(attempt);
@@ -409,6 +550,7 @@
           if (opts.onFail) opts.onFail(err);
           if (pc) { try { pc.close(); } catch (e) {} pc = null; }
           needsResubscribe = true;
+          stopPairHeartbeat();
           status('reconnecting');
           attempt++;
           await backoff(attempt);
@@ -421,11 +563,22 @@
 
     return {
       get sessionId() { return sessionId; },
+      get returnSession() { return activeReturnSession; },
       stop: function () {
         runningRef.running = false;
         if (returnPollTimer) { clearTimeout(returnPollTimer); returnPollTimer = null; }
+        stopPairHeartbeat();
         if (pc) { try { pc.close(); } catch (e) {} pc = null; }
-        if (waitReturn && opts.door) clearReturn(opts.door).catch(function () {});
+        // Solo el lado que publicó el emparejamiento lo libera. La
+        // puerta no debe borrar la respuesta del visitante, y la
+        // validación por `session` evita tumbar la de otro.
+        if (announceReturn && sessionId) {
+          clearReturn(opts.door, sessionId).catch(function () {});
+        }
+        // La puerta sí publica su sesión de emisión: se retira al parar.
+        if (!silent && opts.door && sessionId) {
+          clearStream(opts.door, sessionId).catch(function () {});
+        }
         if (!silent) clearActiveViewUrl();
         status('stopped');
       },
@@ -534,7 +687,11 @@
     clearActiveViewUrl: clearActiveViewUrl,
     parseViewParams: parseViewParams,
     registerReturn: registerReturn,
+    registerReturnReliable: registerReturnReliable,
+    announceStream: announceStream,
     getReturnStatus: getReturnStatus,
+    getStreamStatus: getStreamStatus,
+    clearStream: clearStream,
     clearReturn: clearReturn,
     broadcast: broadcast,
     watch: watch,

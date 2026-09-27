@@ -35,6 +35,7 @@
   var placeholder = document.getElementById('cam-live-placeholder');
   var hintText = document.getElementById('cam-hint-text');
   var statusPill = document.getElementById('cam-status-pill');
+  var camNote = document.getElementById('cam-note');
   var errorBox = document.getElementById('cam-error');
 
   var controller = null;
@@ -42,11 +43,13 @@
   var remoteStream = null;
   var remoteAudioTrack = null;
   var telegramNotified = false;
+  var notifiedSession = '';
   var micOn = true;
   var callActive = false;
   var returnFrameShown = false;
   var onReturnPlaying = null;
   var returnFrameFallback = null;
+  var playbackWatchdog = null;
   var gestureRetryAttached = false;
 
   function setHint(text) {
@@ -61,17 +64,30 @@
     if (statusPill) statusPill.classList.toggle('is-hidden', !visible);
   }
 
+  // El aviso de pie de la modal es el único texto siempre visible:
+  // comunica el estado de la llamada aunque la pantalla todavía no
+  // se haya dividido.
+  function setNote(text) {
+    if (camNote) camNote.textContent = text;
+  }
+
   function resetReturn() {
     callActive = false;
     remoteAudioTrack = null;
     remoteStream = new MediaStream();
     returnFrameShown = false;
-    if (returnFrameFallback) { clearTimeout(returnFrameFallback); returnFrameFallback = null; }
+    stopFrameWatchdog();
+    detachPlaybackWatchdog();
     if (onReturnPlaying) {
-      if (returnVideo) returnVideo.removeEventListener('playing', onReturnPlaying);
+      if (returnVideo) {
+        returnVideo.removeEventListener('playing', onReturnPlaying);
+        returnVideo.removeEventListener('loadeddata', onReturnPlaying);
+        returnVideo.removeEventListener('canplay', onReturnPlaying);
+      }
       onReturnPlaying = null;
     }
     if (returnVideo) {
+      try { returnVideo.pause(); } catch (e) {}
       returnVideo.srcObject = remoteStream;
       returnVideo.muted = false;
       if (btnSpeaker) btnSpeaker.textContent = '🔊';
@@ -81,33 +97,73 @@
     if (returnPlaceholder) returnPlaceholder.classList.add('is-hidden');
     if (camControls) camControls.classList.add('is-hidden');
     if (camStage) camStage.classList.remove('has-call');
+    setNote('La transmisión se está enviando por Telegram.');
   }
 
+  // La división solo se muestra cuando hay un frame real del
+  // visitante (markFrameRendered). Antes de eso el cuadro inferior
+  // queda oculto y se ve el aviso de "Esperando al visitante…",
+  // en lugar de un cuadro negro que parece una llamada cortada.
   function showReturnPane(visible) {
     if (!returnPane || !camStage || !camControls) return;
     returnPane.classList.toggle('is-hidden', !visible);
     camStage.classList.toggle('has-call', visible);
     camControls.classList.toggle('is-hidden', !visible);
-    if (visible && returnPlaceholder) returnPlaceholder.classList.remove('is-hidden');
   }
 
   // ── Reproducción robusta del video del visitante ─────────
   // El <video> de retorno no está silenciado, así que el primer
-  // play() puede bloquearse por la política de autoplay. Mostramos
-  // el placeholder hasta que el primer fotograma se renderiza de
-  // verdad y reintentamos play() con el próximo gesto si falla.
-  function onReturnFirstFrame() {
+  // play() puede bloquearse por la política de autoplay. La pantalla
+  // solo se divide cuando hay un fotograma real renderizado: si no,
+  // se mantiene el cuadro único con el aviso "Esperando al
+  // visitante…", que es la señal honesta de que aún no hay señal.
+  function markFrameRendered() {
     if (returnFrameShown) return;
     returnFrameShown = true;
-    if (returnFrameFallback) { clearTimeout(returnFrameFallback); returnFrameFallback = null; }
+    stopFrameWatchdog();
+    if (returnPane) showReturnPane(true);
     if (returnPlaceholder) returnPlaceholder.classList.add('is-hidden');
     if (callPill) callPill.classList.remove('is-hidden');
+    setNote('Llamada en curso con el visitante.');
   }
 
-  function scheduleReturnFrameFallback() {
+  // Si el primer frame tarda demasiado, se reintenta play(): el
+  // navegador a veces resuelve la promesa pero no decodifica nada.
+  function scheduleFrameWatchdog() {
     if (returnFrameShown) return;
     if (returnFrameFallback) clearTimeout(returnFrameFallback);
-    returnFrameFallback = setTimeout(onReturnFirstFrame, 1200);
+    returnFrameFallback = setTimeout(function () {
+      if (returnFrameShown) return;
+      playReturnVideo();
+      if (returnVideo && returnVideo.readyState >= 2) {
+        markFrameRendered();
+        return;
+      }
+      // Sigue sin frame: se reintenta con más margen.
+      scheduleFrameWatchdog();
+    }, 1500);
+  }
+
+  function stopFrameWatchdog() {
+    if (returnFrameFallback) { clearTimeout(returnFrameFallback); returnFrameFallback = null; }
+  }
+
+  // Si el video se queda congelado o se detiene, se reintenta la
+  // reproducción: es lo que hace que la llamada "se prenda y apague".
+  function attachPlaybackWatchdog() {
+    if (playbackWatchdog) return;
+    playbackWatchdog = setInterval(function () {
+      if (!returnVideo || !returnVideo.srcObject) return;
+      if (document.hidden) return;
+      if (returnVideo.paused || returnVideo.readyState < 2) playReturnVideo();
+    }, 2000);
+    if (playbackWatchdog && typeof playbackWatchdog.unref === 'function') {
+      playbackWatchdog.unref();
+    }
+  }
+
+  function detachPlaybackWatchdog() {
+    if (playbackWatchdog) { clearInterval(playbackWatchdog); playbackWatchdog = null; }
   }
 
   function attachGestureRetry() {
@@ -128,25 +184,31 @@
     var p = returnVideo.play();
     if (p && typeof p.catch === 'function') {
       p.catch(function () {
-        if (returnPlaceholder) returnPlaceholder.classList.remove('is-hidden');
+        if (!returnFrameShown && returnPlaceholder) {
+          returnPlaceholder.classList.remove('is-hidden');
+        }
         attachGestureRetry();
       });
     }
   }
 
   function attachReturnStream(stream) {
-    if (!returnVideo) return;
+    if (!returnVideo || !stream) return;
     if (onReturnPlaying) {
       returnVideo.removeEventListener('playing', onReturnPlaying);
+      returnVideo.removeEventListener('loadeddata', onReturnPlaying);
+      returnVideo.removeEventListener('canplay', onReturnPlaying);
       onReturnPlaying = null;
     }
     if (returnVideo.srcObject !== stream) {
       returnVideo.srcObject = stream;
       if (returnPlaceholder) returnPlaceholder.classList.remove('is-hidden');
-      scheduleReturnFrameFallback();
+      scheduleFrameWatchdog();
     }
-    onReturnPlaying = onReturnFirstFrame;
+    onReturnPlaying = markFrameRendered;
     returnVideo.addEventListener('playing', onReturnPlaying);
+    returnVideo.addEventListener('loadeddata', onReturnPlaying);
+    returnVideo.addEventListener('canplay', onReturnPlaying);
     playReturnVideo();
   }
 
@@ -258,13 +320,29 @@
             // Notificación automática al receptor (una sola vez)
             if (!telegramNotified) {
               telegramNotified = true;
+              notifiedSession = info.sessionId;
+              notifyTelegram(info.viewUrl);
+            }
+          },
+          onUpdate: function (info) {
+            // La puerta reconectó y publicó otra sesión: el enlace
+            // viejo ya no sirve, así que se vuelve a avisar. Solo si
+            // la sesión es realmente distinta, para no duplicar el
+            // aviso en el primer arranque.
+            if (info && info.viewUrl && info.sessionId &&
+                info.sessionId !== notifiedSession) {
+              notifiedSession = info.sessionId;
               notifyTelegram(info.viewUrl);
             }
           },
           onReturnState: function (state) {
             if (state === 'connected') {
-              callActive = true;
-              showReturnPane(true);
+              // El SFU ya aceptó la negociación. El cuadro inferior
+              // se revela cuando llegue el primer frame real, no
+              // ahora: dividir sin imagen se veía como fallo.
+              if (camControls) camControls.classList.remove('is-hidden');
+              setNote('El visitante contestó: conectando su video…');
+              attachPlaybackWatchdog();
             }
           },
           onReturnTrack: function (track, kind) {
@@ -275,17 +353,26 @@
               if (remoteAudioTrack) remoteStream.addTrack(remoteAudioTrack);
             } else if (kind === 'audio') {
               remoteAudioTrack = track;
-              if (remoteStream) remoteStream.addTrack(track);
+              if (!remoteStream) remoteStream = new MediaStream();
+              remoteStream.addTrack(track);
             }
             if (!callActive) {
               callActive = true;
-              showReturnPane(true);
             }
             attachReturnStream(remoteStream);
           },
           onFail: function (err) {
             console.error('SFU broadcast error', err);
             showError('Se perdió la transmisión. Reintentando…');
+          },
+          onReturnFail: function (err) {
+            // La ida sigue bien; solo falló traer la respuesta del
+            // visitante. Se avisa en el texto de la modal, no como
+            // error general de la transmisión.
+            console.warn('No se pudo traer el retorno del visitante', err);
+            if (!returnFrameShown) {
+              setNote('El visitante contestó; todavía llega su video…');
+            }
           },
         });
       })
@@ -305,6 +392,7 @@
     stopLocalMedia();
     resetReturn();
     telegramNotified = false;
+    notifiedSession = '';
     micOn = true;
     if (btnMic) btnMic.textContent = '🎙️';
   }
